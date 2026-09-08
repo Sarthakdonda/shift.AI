@@ -53,10 +53,14 @@ CORS_ORIGINS=http://localhost:3000
 The MongoDB URI starts with `mongodb+srv://` and must be on a single line without quotes, spaces, or Markdown escape backslashes. Encode reserved characters in a username/password when constructing the URI. In Atlas, add your computer's current public IP under Network Access and ensure the database user has read/write permission on `shift_ai`.
 
 ```powershell
-.venv\Scripts\python.exe -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+python run.py
 ```
 
 API docs: <http://localhost:8000/docs> · Health: <http://localhost:8000/api/health>
+
+For everyday startup, open your terminal in `backend` and run `python run.py`.
+It automatically uses the project's `.venv`, even when `python` points to your system Python.
+No activation or navigation into `.venv/Scripts` is needed. Press Ctrl+C to stop.
 
 ### 2. Frontend
 
