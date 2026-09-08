@@ -6,6 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=Path(__file__).resolve().parents[2] / '.env', extra='ignore')
     gemini_api_key: str = ''
+    gemini_api_keys: str = ''
     gemini_model: str = 'gemini-2.5-flash'
     mongodb_uri: str = ''
     mongodb_database: str = 'shift_ai'
@@ -18,6 +19,12 @@ class Settings(BaseSettings):
     vector_search_enabled: bool = False
     vector_index_name: str = 'document_embeddings'
     embedding_model: str = 'gemini-embedding-001'
+
+    @property
+    def gemini_keys(self):
+        # Keep the existing primary key first; ignore blank and duplicate entries.
+        entries = [self.gemini_api_key, *self.gemini_api_keys.replace('\n', ',').split(',')]
+        return list(dict.fromkeys(key.strip() for key in entries if key.strip()))
 
     @property
     def origins(self):

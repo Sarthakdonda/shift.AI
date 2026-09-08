@@ -9,6 +9,7 @@ from tests.fakes import FakeGemini
 settings = get_settings()
 settings.mongodb_uri = ''
 settings.gemini_api_key = 'browser-tests-only'
+settings.gemini_api_keys = ''
 settings.google_client_id = ''
 settings.allow_local_access = True
 store = Store(mongomock.MongoClient().browser_test_shift_ai)

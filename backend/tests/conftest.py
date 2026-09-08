@@ -14,6 +14,7 @@ def setup(monkeypatch):
     monkeypatch.setattr(settings, 'google_client_id', '')
     monkeypatch.setattr(settings, 'mongodb_uri', '')
     monkeypatch.setattr(settings, 'gemini_api_key', '')
+    monkeypatch.setattr(settings, 'gemini_api_keys', '')
     monkeypatch.setattr(settings, 'allow_local_access', True)
     monkeypatch.setattr(settings, 'session_secret', 'test-secret-that-is-at-least-thirty-two-characters')
     monkeypatch.setattr(settings, 'vector_search_enabled', False)

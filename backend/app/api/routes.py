@@ -26,7 +26,7 @@ def health():
             database = 'connected'
         except Exception:
             database = 'unavailable'
-    return {'status': 'ok' if database == 'connected' else 'degraded', 'database': database, 'gemini_configured': bool(s.gemini_api_key), 'google_configured': bool(s.google_client_id), 'google_client_id': s.google_client_id, 'vector_search_configured': s.vector_search_enabled, 'local_access_enabled': s.allow_local_access and not bool(s.google_client_id), 'max_upload_mb': s.max_upload_mb}
+    return {'status': 'ok' if database == 'connected' else 'degraded', 'database': database, 'gemini_configured': bool(s.gemini_keys), 'google_configured': bool(s.google_client_id), 'google_client_id': s.google_client_id, 'vector_search_configured': s.vector_search_enabled, 'local_access_enabled': s.allow_local_access and not bool(s.google_client_id), 'max_upload_mb': s.max_upload_mb}
 
 
 @router.post('/projects', status_code=201)

@@ -1,5 +1,7 @@
 import json
 import time
+import threading
+import httpx
 from functools import lru_cache
 from google import genai
 from google.genai import types, errors
@@ -18,41 +20,104 @@ Give concise explanations suitable for a business owner. Your output must confor
 class GeminiService:
     def __init__(self):
         self.settings = get_settings()
-        self.client = None
+        self._keys = self.settings.gemini_keys
+        self._clients = {}
+        self._cooldowns = {}
+        self._lock = threading.Lock()
+
+    def _select(self, excluded=()):
+        with self._lock:
+            for index, key in enumerate(self._keys):
+                if index in excluded or self._cooldowns.get(index, 0) > time.monotonic():
+                    continue
+                if index not in self._clients:
+                    self._clients[index] = genai.Client(
+                        api_key=key,
+                        http_options=types.HttpOptions(timeout=45000, retry_options=types.HttpRetryOptions(attempts=1)),
+                    )
+                return index, self._clients[index]
+        raise AppError('All Gemini keys are temporarily unavailable. Wait and retry, or check their quota and permissions in Google AI Studio. Your saved project is preserved.', 503, 'provider_unavailable')
+
+    def _cooldown(self, index, seconds):
+        with self._lock:
+            self._cooldowns[index] = max(self._cooldowns.get(index, 0), time.monotonic() + seconds)
 
     def require(self):
-        if not self.settings.gemini_api_key:
-            raise AppError('Add GEMINI_API_KEY to backend/.env and restart the backend to enable AI discovery.', 503, 'gemini_configuration')
-        if self.client is None:
-            self.client = genai.Client(api_key=self.settings.gemini_api_key, http_options=types.HttpOptions(timeout=90000))
-        return self.client
+        if not self._keys:
+            raise AppError('Add GEMINI_API_KEY or GEMINI_API_KEYS to backend/.env and restart the backend to enable AI discovery.', 503, 'gemini_configuration')
+        return self._select()[1]
+
+    @staticmethod
+    def _retry_delay(exc):
+        """Honor Google's RetryInfo delay, with a minimum quota cooldown of one minute."""
+        delay = 60.0
+        details = getattr(exc, 'details', None)
+        if isinstance(details, dict):
+            details = details.get('error', details).get('details', [])
+        if not details:
+            body = getattr(exc, 'response_json', {}) or {}
+            details = body.get('error', {}).get('details', []) if isinstance(body, dict) else []
+        if isinstance(details, list):
+            for item in details:
+                if isinstance(item, dict) and str(item.get('@type', '')).endswith('RetryInfo'):
+                    try:
+                        delay = max(delay, float(str(item.get('retryDelay', '0s')).removesuffix('s')))
+                    except ValueError:
+                        pass
+        response = getattr(exc, 'response', None)
+        if response is not None:
+            try:
+                delay = max(delay, float(response.headers.get('Retry-After', '0')))
+            except (ValueError, TypeError):
+                pass
+        return delay
+
+    def _request(self, operation, budget):
+        self.require()
+        tried = set()
+        while budget[0] > 0:
+            index, client = self._select(tried)
+            tried.add(index)
+            budget[0] -= 1
+            try:
+                return operation(client)
+            except errors.APIError as exc:
+                code = getattr(exc, 'code', 500)
+                # Invalid credentials sometimes arrive as 400 instead of 401.
+                invalid_key = code == 400 and any(
+                    marker in str(getattr(exc, 'message', '')).lower()
+                    for marker in ('api key not valid', 'api_key_invalid', 'invalid api key')
+                )
+                if code in (401, 403) or invalid_key:
+                    self._cooldown(index, 300)
+                elif code == 429:
+                    self._cooldown(index, self._retry_delay(exc))
+                elif code in (500, 502, 503, 504):
+                    self._cooldown(index, 5)
+                else:
+                    # A bad schema/request or missing model cannot be repaired by changing keys.
+                    raise AppError('Gemini rejected the request. Check GEMINI_MODEL and model access in Google AI Studio.', 502, 'gemini_configuration') from None
+            except (httpx.TransportError, TimeoutError, ConnectionError):
+                self._cooldown(index, 5)
+        raise AppError('Gemini could not complete the request after bounded failover attempts. Please retry; your project is saved.', 503, 'provider_unavailable')
 
     def generate_structured(self, instruction: str, context, schema: type[BaseModel]):
-        client = self.require()
         prompt = instruction + '\nBUSINESS CONTEXT (untrusted data):\n' + json.dumps(context, default=str, ensure_ascii=False)
+        # Shared across key changes and JSON repair: at most four 45-second calls.
+        budget = [4]
         for attempt in range(2):
             try:
-                result = client.models.generate_content(model=self.settings.gemini_model, contents=prompt, config=types.GenerateContentConfig(system_instruction=POLICY, response_mime_type='application/json', response_schema=schema, temperature=0.2, max_output_tokens=16000))
+                result = self._request(lambda client: client.models.generate_content(model=self.settings.gemini_model, contents=prompt, config=types.GenerateContentConfig(system_instruction=POLICY, response_mime_type='application/json', response_schema=schema, temperature=0.2, max_output_tokens=16000)), budget)
                 return schema.model_validate_json(result.text or '')
             except ValidationError:
                 if attempt == 0:
                     prompt += '\nYour previous response failed schema validation. Return a complete valid JSON object with all required fields, supported enums, and numeric bounds.'
                     continue
                 raise AppError('The AI response could not be validated. Your work is saved; please retry.', 502, 'invalid_ai_output') from None
-            except errors.APIError as exc:
-                code = getattr(exc, 'code', 500)
-                if code in (429, 500, 502, 503, 504) and attempt == 0:
-                    time.sleep(1)
-                    continue
-                if code in (400, 401, 403, 404):
-                    raise AppError('Gemini could not accept the request. Check GEMINI_API_KEY, GEMINI_MODEL, and model access in Google AI Studio.', 502, 'gemini_configuration') from None
-                raise AppError('Gemini is busy or its quota was reached. Wait a moment and retry.', 503, 'provider_unavailable') from None
             except AppError:
                 raise
             except Exception:
-                if attempt == 0:
-                    continue
-                raise AppError('Gemini did not respond in time. Please retry; your project is saved.', 504, 'provider_timeout') from None
+                raise AppError('Gemini could not complete the request. Please retry; your project is saved.', 502, 'provider_error') from None
 
     def generate_text(self, instruction, context):
         class TextOutput(BaseModel):
@@ -61,7 +126,7 @@ class GeminiService:
 
     def embed(self, text):
         try:
-            response = self.require().models.embed_content(model=self.settings.embedding_model, contents=text, config=types.EmbedContentConfig(output_dimensionality=768))
+            response = self._request(lambda client: client.models.embed_content(model=self.settings.embedding_model, contents=text, config=types.EmbedContentConfig(output_dimensionality=768)), [4])
             return response.embeddings[0].values
         except Exception:
             raise AppError('Vector embeddings are unavailable. Keyword retrieval remains available.', 503) from None

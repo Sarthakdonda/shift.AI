@@ -28,11 +28,12 @@ def test_unknown_workflow_blocks_even_without_model_flag():
     assert d.enough_information is False and d.scores.overall == 30
 
 
-def test_malformed_provider_output_retries_once(setup):
+def test_malformed_provider_output_retries_once(setup, monkeypatch):
+    monkeypatch.setattr(setup[3], 'gemini_api_key', 'test-primary')
     ai = GeminiService()
     valid = setup[2].generate_structured('', {}, Necessity).model_dump_json()
     generate = Mock(side_effect=[SimpleNamespace(text='not json'), SimpleNamespace(text=valid)])
-    ai.require = lambda: SimpleNamespace(models=SimpleNamespace(generate_content=generate))
+    ai._clients[0] = SimpleNamespace(models=SimpleNamespace(generate_content=generate))
     result = ai.generate_structured('Decide', {}, Necessity)
     assert result.classification == 'AUTOMATION_SUFFICIENT'
     assert generate.call_count == 2

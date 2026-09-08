@@ -4,7 +4,8 @@ Verified locally on Windows with Node.js 22.18.0 and Python 3.13.7.
 
 | Check | Result | Scope |
 | --- | --- | --- |
-| Backend tests | 29 passed | Project CRUD/isolation, session ownership, nonce verification, CSRF origins, discovery gates, provider JSON repair, saved-answer retries, file validation/extraction, retrieval isolation, bounded review, complete no-AI blueprint |
+| Backend tests | 41 passed | Original workflow coverage plus key fallback, cooldowns, RetryInfo handling, bounded exhaustion, authentication failures, embedding fallback, and backup-only configuration |
+| Live key fallback | Passed | Simulated a quota error on the first configured credential; the next credential completed real structured generation |
 | Browser tests | 4 passed | Complete desktop and mobile workflows, reload persistence, uploads, analysis, blueprint download, deletion, configuration errors, setup/login screens, horizontal overflow |
 | TypeScript | Passed | Strict frontend type checking |
 | ESLint | Passed | Frontend lint, no errors or warnings |
@@ -19,7 +20,7 @@ The Python test runner emits one upstream Starlette/AnyIO deprecation warning. I
 
 ## What requires your credentials
 
-- **Live Gemini generation has not been tested:** no Gemini API key was supplied. The official SDK integration, validated structured outputs, error handling, and full orchestration are implemented. Automated tests use a deterministic provider substitute and do not prove the quality of live model recommendations. Add `GEMINI_API_KEY` and restart the backend.
+- **Live Gemini connectivity verified:** the primary key passed a structured generation request, and both supplied backup credentials passed individual generation requests. Local configuration uses `gemini-3.6-flash` because Google rejected the previous default for this account. Full business-analysis quality remains unverified with live models; workflow tests use a deterministic provider substitute.
 - **Live Google account sign-in has not been tested:** no Google OAuth client ID was supplied. Server-side verification, nonce matching, signed cookies, origin checks, and ownership rules were tested with mocked Google verification. Configure the Web application client and its JavaScript origin as described in the root README.
 - **Atlas Vector Search is optional and disabled by default:** no vector index was provisioned. Keyword retrieval works without one. The optional embedding/search integration requires the documented Atlas index and a Gemini key.
 

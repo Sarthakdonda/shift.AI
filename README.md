@@ -208,3 +208,22 @@ Exact JavaScript dependencies are pinned in `frontend/package-lock.json`; the te
 - [LangGraph Graph API](https://docs.langchain.com/oss/python/langgraph/graph-api)
 
 Model availability and quotas depend on your Google account. Change `GEMINI_MODEL` in the environment to another compatible text model when needed; no source edits are required.
+
+## Multiple Gemini keys and automatic fallback
+
+In **`backend/.env`**, keep your primary key and add comma-separated backup keys:
+
+```dotenv
+GEMINI_API_KEY=your_primary_key
+GEMINI_API_KEYS=your_second_key,your_third_key,your_fourth_key
+```
+
+Restart the backend with `python run.py` after changing keys. Both `AIza...` and newer `AQ...` credentials are accepted as supplied; the app does not reject keys based on their prefix. Blank and duplicate entries are ignored, and the primary key is tried first.
+
+Generation, structured JSON repair, and embeddings use the same key pool. On quota errors (429), authentication/access errors (401/403 or an invalid-key 400), transient server errors, and network timeouts, the service tries the next eligible key. Failed credentials are temporarily skipped: quota errors for at least 60 seconds (longer when Google's RetryInfo or numeric Retry-After requires it), authentication failures for five minutes, and transient failures for five seconds. The cooldown state is shared across requests in the current backend process; restarting resets it. Invalid requests and missing models return a configuration error rather than rotating through every key.
+
+Each generation has a maximum of four provider calls, including JSON repair, with a 45-second timeout per call. Any number of keys may be configured; at most four are attempted per request to keep requests bounded. If every key is unavailable, the app returns a safe retry message and preserves saved project data. Automatic fallback retries the current provider operation; it cannot guarantee uninterrupted service or automatically resume an analysis after all attempts fail.
+
+**Google applies Gemini rate limits per project, not per API key.** Multiple keys from the same Google project do not provide separate quota. See [Google's rate-limit documentation](https://ai.google.dev/gemini-api/docs/rate-limits).
+
+Store real keys only in the ignored backend environment file. No additional dependencies are required for key fallback.
