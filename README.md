@@ -47,7 +47,7 @@ GEMINI_API_KEY=your_gemini_api_key
 GEMINI_MODEL=gemini-2.5-flash
 MONGODB_URI=your_complete_mongodb_atlas_connection_string
 MONGODB_DATABASE=shift_ai
-CORS_ORIGINS=http://localhost:3000
+CORS_ORIGINS=http://localhost:3000,http://localhost:3001
 ```
 
 The MongoDB URI starts with `mongodb+srv://` and must be on a single line without quotes, spaces, or Markdown escape backslashes. Encode reserved characters in a username/password when constructing the URI. In Atlas, add your computer's current public IP under Network Access and ensure the database user has read/write permission on `shift_ai`.
@@ -72,6 +72,11 @@ npm.cmd run dev
 ```
 
 Open **<http://localhost:3000>**. The default API URL is already configured. `npm.cmd` avoids Windows PowerShell execution-policy issues with `npm.ps1`.
+
+If Next.js selects port **3001** because 3000 is occupied, open <http://localhost:3001>.
+The backend allows both local origins by default. Existing `.env` files must include both in
+`CORS_ORIGINS=http://localhost:3000,http://localhost:3001`; restart the backend after editing this setting.
+For any other frontend port, add its exact origin to that comma-separated list.
 
 On macOS/Linux, use `.venv/bin/python` for Python commands and `npm` instead of `npm.cmd`. Use `cp` to copy environment templates.
 

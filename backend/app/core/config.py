@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     gemini_model: str = 'gemini-2.5-flash'
     mongodb_uri: str = ''
     mongodb_database: str = 'shift_ai'
-    cors_origins: str = 'http://localhost:3000'
+    cors_origins: str = 'http://localhost:3000,http://localhost:3001'
     max_upload_mb: int = 15
     google_client_id: str = ''
     session_secret: str = ''
