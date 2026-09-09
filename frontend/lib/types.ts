@@ -18,10 +18,28 @@ export type Necessity = {
   recommended_approach: string;
   confidence: number;
 };
+export type ModelOption = {
+  id: string;
+  label: string;
+  description: string;
+  supports_effort: boolean;
+};
+export type EffortOption = { id: string; label: string; description: string };
+export type ModelCatalog = {
+  models: ModelOption[];
+  default_model: string;
+  efforts: EffortOption[];
+  default_effort: string;
+};
 export type Project = {
   id: string;
   name: string;
   industry: string;
+  workspace_id?: string | null;
+  language?: string;
+  model?: string;
+  effort?: string;
+  access_role?: string;
   initial_problem: string;
   status: string;
   discovery_scores: Record<string, number>;
@@ -123,6 +141,7 @@ export type Analysis = {
   red_team?: { summary: string; findings: Finding[] };
   red_team_cycle?: number;
   red_team_history?: { summary: string; findings: Finding[] }[];
+  solution_history?: NonNullable<Analysis["solution"]>[];
   business_value?: {
     summary: string;
     metrics: {

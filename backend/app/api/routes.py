@@ -3,9 +3,10 @@ from fastapi import APIRouter, Depends, Request, BackgroundTasks, UploadFile, Fi
 from app.core.auth import user
 from app.core.errors import AppError
 from app.core.config import get_settings
-from app.models.schemas import ProjectCreate, ChatInput
+from app.models.schemas import ProjectCreate, ChatInput, ModelChoice
 from app.repositories.store import get_store, serialize, now
 from app.services.gemini_service import get_gemini
+from app.services.model_catalog import catalog
 from app.services.document_service import validate_file
 from app.services.project_service import ProjectService
 
@@ -36,7 +37,8 @@ def create(body: ProjectCreate, account=Depends(user)):
 
 @router.get('/projects')
 def projects(account=Depends(user)):
-    return serialize(list(get_store().db.projects.find({'owner_id': account['id']}).sort('updated_at', -1)))
+    s = get_store()
+    return serialize(list(s.db.projects.find(s.project_filter(account['id'])).sort('updated_at', -1)))
 
 
 @router.get('/projects/{pid}')
@@ -55,6 +57,25 @@ def messages(pid: str, account=Depends(user)):
     s = get_store()
     s.project(pid, account['id'])
     return serialize(s.related('messages', pid))
+
+
+@router.get('/models')
+def models(account=Depends(user)):
+    """Models this account's keys can use, plus the effort levels for the composer."""
+    return catalog(get_gemini(), get_settings().gemini_model)
+
+
+@router.post('/projects/{pid}/model')
+def choose_model(pid: str, body: ModelChoice, account=Depends(user)):
+    s = get_store()
+    p = s.project(pid, account['id'], 'write')
+    if p.get('busy'):
+        raise AppError('This project is processing. Change the model when it finishes.', 409)
+    allowed = {m['id'] for m in catalog(get_gemini(), get_settings().gemini_model)['models']}
+    if body.model not in allowed:
+        raise AppError('That model is not available for your API keys. Choose another.', 400, 'model_unavailable')
+    s.update(pid, model=body.model, effort=body.effort)
+    return {'model': body.model, 'effort': body.effort}
 
 
 @router.post('/projects/{pid}/chat')

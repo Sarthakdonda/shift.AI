@@ -1,6 +1,7 @@
 DISCOVERY = '''Update discovery using ALL prior facts, messages, document summaries and retrieved evidence. Track business context,
 problem, workflow, people, technology, data, constraints, impact, integrations, outcome. Ask exactly ONE high-value question
-about missing context, never facts already supplied. Do not propose architecture yet. Preserve facts with source references.
+about missing context, never facts already supplied. Focus on one missing topic per turn; do not bundle workflow, volume,
+tools and desired outcomes into a single multi-part question. Do not propose architecture yet. Preserve facts with source references.
 Score each category 0-100 for completeness; unknown is not complete. Mark critical missing information honestly.
 Only enough_information=true when the actual problem, current workflow, desired outcome, relevant data/technology and constraints
 are sufficient for a defensible recommendation. Explicitly acknowledged unknowns may remain assumptions, but never hide a critical gap.

@@ -8,6 +8,7 @@ import {
 } from "react";
 import { api, post } from "@/lib/api";
 import type { Health, User } from "@/lib/types";
+import { FeedbackProvider } from "@/components/ui/feedback";
 type Session = {
   user: User | null;
   health: Health | null;
@@ -28,8 +29,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const refresh = useCallback(async () => {
     const [h, u] = await Promise.allSettled([
-      api<Health>("/health"),
-      api<User>("/auth/me"),
+      api<Health>("/health", { signal: AbortSignal.timeout(10000) }),
+      api<User>("/auth/me", { signal: AbortSignal.timeout(10000) }),
     ]);
     setHealth(h.status === "fulfilled" ? h.value : null);
     setUser(u.status === "fulfilled" ? u.value : null);
@@ -51,7 +52,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         },
       }}
     >
-      {children}
+      <FeedbackProvider>{children}</FeedbackProvider>
     </Context.Provider>
   );
 }

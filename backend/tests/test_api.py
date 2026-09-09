@@ -63,6 +63,8 @@ def test_red_team_bounded_and_findings_retained(setup, project):
     bp = client.get(f'/api/projects/{project}/blueprint').json()['content']
     assert bp['red_team_cycle'] == 3
     assert len(bp['red_team_history']) == 3
+    assert len(bp['solution_history']) == 3
+    assert bp['solution_history'][-1] == bp['solution']
     assert bp['red_team']['findings'][0]['requires_revision']
     assert ai.calls.count('Solution') == 3
     assert ai.calls.count('RedTeam') == 3

@@ -41,3 +41,20 @@ def test_malformed_provider_output_retries_once(setup, monkeypatch):
     with pytest.raises(AppError) as e:
         ai.generate_structured('Decide', {}, Necessity)
     assert e.value.code == 'invalid_ai_output'
+
+
+@pytest.mark.parametrize('level', [None, 'low', 'high'])
+def test_configured_thinking_level_preserves_schema_validation(setup, monkeypatch, level):
+    monkeypatch.setattr(setup[3], 'gemini_api_key', 'test-primary')
+    monkeypatch.setattr(setup[3], 'gemini_model', 'gemini-3.6-flash')
+    monkeypatch.setattr(setup[3], 'gemini_effort', 'medium')
+    monkeypatch.setattr(setup[3], 'gemini_thinking_level', level)
+    ai = GeminiService()
+    valid = setup[2].generate_structured('', {}, Necessity).model_dump_json()
+    generate = Mock(return_value=SimpleNamespace(text=valid))
+    ai._clients[0] = SimpleNamespace(models=SimpleNamespace(generate_content=generate))
+    assert ai.generate_structured('Decide', {}, Necessity).classification == 'AUTOMATION_SUFFICIENT'
+    config = generate.call_args.kwargs['config']
+    assert config.response_schema is Necessity
+    # An explicit level overrides the effort; otherwise the selected effort applies.
+    assert config.thinking_config.thinking_level == (level or 'medium').upper()

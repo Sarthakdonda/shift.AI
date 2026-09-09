@@ -44,8 +44,25 @@ def test_all_keys_exhausted_is_safe_and_bounded(setup, monkeypatch):
     assert sum(c.call_count for c in calls) == 4
 
 
-def test_model_error_does_not_rotate_keys(setup, monkeypatch):
+def test_missing_model_rotates_keys_because_projects_differ(setup, monkeypatch):
+    """A 404 means this key's project lacks the model; another key may still serve it."""
     ai, calls = make_pool(setup, monkeypatch, {0: api_error(404)})
+    assert ai.generate_structured('Decide', {}, Necessity).classification == 'AUTOMATION_SUFFICIENT'
+    assert calls[0].call_count == 1 and calls[1].call_count == 1
+    # The key is still usable for models it does have.
+    assert ai._cooldowns.get(0, 0) == 0
+
+
+def test_missing_model_on_all_keys_reports_the_model(setup, monkeypatch):
+    ai, calls = make_pool(setup, monkeypatch, {0: api_error(404), 1: api_error(404)})
+    with pytest.raises(AppError) as result:
+        ai.generate_structured('Decide', {}, Necessity)
+    assert result.value.code == 'model_unavailable'
+    assert calls[0].call_count == 1 and calls[1].call_count == 1
+
+
+def test_malformed_request_does_not_rotate_keys(setup, monkeypatch):
+    ai, calls = make_pool(setup, monkeypatch, {0: api_error(400, 'Invalid JSON payload')})
     with pytest.raises(AppError) as result:
         ai.generate_structured('Decide', {}, Necessity)
     assert result.value.code == 'gemini_configuration'

@@ -10,6 +10,7 @@ class ShiftState(TypedDict, total=False):
     root_cause: dict
     ai_necessity: dict
     solution: dict
+    solution_history: list[dict]
     red_team: dict
     red_team_history: list[dict]
     red_team_cycle: int
@@ -29,6 +30,8 @@ def build_graph(ai, progress):
             progress(stage, state)
             result = ai.generate_structured(instruction, state, schema).model_dump()
             update: dict[str, Any] = {key: result}
+            if key == 'solution':
+                update['solution_history'] = [*state.get('solution_history', []), result]
             if key == 'red_team':
                 update['red_team_cycle'] = state.get('red_team_cycle', 0) + 1
                 update['red_team_history'] = [*state.get('red_team_history', []), result]

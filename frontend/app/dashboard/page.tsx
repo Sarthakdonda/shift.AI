@@ -1,4 +1,6 @@
 "use client";
+
+import { T } from "@/components/locale";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -17,8 +19,10 @@ import { useSession } from "@/components/providers";
 import { api, date, humanize } from "@/lib/api";
 import { Project } from "@/lib/types";
 import { Empty, ErrorBox, Loading } from "@/components/ui/states";
+import { delay } from "@/lib/utils";
+
 export default function Dashboard() {
-  const { user, health, loading: authLoading } = useSession();
+  const { user, loading: authLoading } = useSession();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -54,94 +58,138 @@ export default function Dashboard() {
     <Shell>
       <div className="page-heading">
         <div>
-          <span className="eyebrow">YOUR NEXT MOVE STARTS HERE</span>
-          <h1>Let’s make progress.</h1>
+          <span className="eyebrow">
+            <T text={"YOUR WORKSPACE, AT A GLANCE"} />
+          </span>
+          <h1>
+            {user && !user.local
+              ? `Welcome back, ${user.name.split(" ")[0]}.`
+              : "A clearer way forward."}
+          </h1>
           <p>
-            Big questions. Clear direction. All your projects, in one place.
+            <T
+              text={
+                "Pick up a thought. Explore a possibility. Make your next shift."
+              }
+            />
           </p>
         </div>
         <Link className="button button-primary" href="/project/new">
-          <Plus size={18} /> New project
+          <Plus size={18} />
+          <T text={" New project"} />
         </Link>
       </div>
+
       {!authLoading && !user && (
-        <ErrorBox message="Sign in to see your projects." />
-      )}
-      {!authLoading && !user && (
-        <Link href="/login" className="button button-secondary">
-          Sign in with Google <ArrowRight size={16} />
-        </Link>
-      )}
-      <section className="dashboard-banner">
-        <div>
-          <span className="eyebrow">A BETTER STARTING POINT</span>
-          <h2>
-            You bring the challenge.
-            <br />
-            We’ll help find the right direction.
-          </h2>
-          <p>Start with what’s not working. The solution comes after.</p>
-          <Link href="/project/new" className="text-button">
-            Explore a new problem <ArrowRight size={16} />
+        <div className="panel signin-prompt enter">
+          <div>
+            <h2>
+              <T text={"Sign in to see your projects"} />
+            </h2>
+            <p className="muted">
+              <T
+                text={
+                  "Each account keeps its own private workspace, projects, and blueprints."
+                }
+              />
+            </p>
+          </div>
+          <Link href="/login" className="button button-primary">
+            <T text={"Sign in "} />
+            <ArrowRight size={16} />
           </Link>
         </div>
-        <div className="banner-diagram">
+      )}
+
+      <section className="dashboard-banner enter">
+        <div>
+          <span className="eyebrow">
+            <T text={"MAKE SPACE FOR WHAT’S NEXT"} />
+          </span>
+          <h2>
+            <T text={"Your next big idea"} />
+            <br />
+            <T text={"starts with a better question."} />
+          </h2>
+          <p>
+            <T
+              text={
+                "Turn the challenge on your mind into a practical plan for your team."
+              }
+            />
+          </p>
+          <Link href="/project/new" className="button button-primary button-sm">
+            <T text={"Start something new "} />
+            <ArrowUpRight size={16} />
+          </Link>
+        </div>
+        <div className="banner-diagram" aria-hidden>
           <div>
             <Search size={20} />
-            <span>Understand</span>
+            <span>
+              <T text={"Understand"} />
+            </span>
           </div>
           <span className="diagram-line" />
           <div>
             <Activity size={20} />
-            <span>Evaluate</span>
+            <span>
+              <T text={"Evaluate"} />
+            </span>
           </div>
           <span className="diagram-line" />
           <div className="diagram-final">
             <ArrowUpRight size={20} />
-            <span>Move forward</span>
+            <span>
+              <T text={"Move forward"} />
+            </span>
           </div>
         </div>
       </section>
+
       <div className="stats-grid">
-        {[
+        {(
           [
-            FolderOpen,
-            "Total projects",
-            projects.length,
-            "Ideas worth exploring",
-          ],
-          [
-            Activity,
-            "In progress",
-            projects.length - completed,
-            "Building a clearer picture",
-          ],
-          [
-            FileCheck2,
-            "Blueprints ready",
-            completed,
-            "Ready for your next step",
-          ],
-        ].map(([Icon, title, count, caption]) => {
-          const I = Icon as typeof FolderOpen;
-          return (
-            <div className="stat-card" key={String(title)}>
-              <div>
-                <span>{String(title)}</span>
-                <I size={19} />
-              </div>
-              <strong>{String(count).padStart(2, "0")}</strong>
-              <small>{String(caption)}</small>
+            [
+              FolderOpen,
+              "Total projects",
+              projects.length,
+              "Ideas worth exploring",
+            ],
+            [
+              Activity,
+              "In progress",
+              projects.length - completed,
+              "Building a clearer picture",
+            ],
+            [
+              FileCheck2,
+              "Blueprints ready",
+              completed,
+              "Ready for your next step",
+            ],
+          ] as const
+        ).map(([Icon, title, count, caption], i) => (
+          <div className="stat-card enter" style={delay(i * 80)} key={title}>
+            <div>
+              <span>{title}</span>
+              <Icon size={19} />
             </div>
-          );
-        })}
+            <strong>{String(count).padStart(2, "0")}</strong>
+            <small>{caption}</small>
+          </div>
+        ))}
       </div>
+
       <div className="section-toolbar">
         <div>
           <h2>
-            Your projects <span className="count">{projects.length}</span>
+            <T text={"Your projects "} />
+            <span className="count">{projects.length}</span>
           </h2>
-          <p className="muted">Pick up where you left off.</p>
+          <p className="muted">
+            <T text={"Pick up exactly where you left off."} />
+          </p>
         </div>
         <div className="toolbar-controls">
           <label className="search-input">
@@ -173,6 +221,7 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
       <div className="filter-tabs">
         {[
           ["all", "All projects"],
@@ -188,6 +237,7 @@ export default function Dashboard() {
           </button>
         ))}
       </div>
+
       {loading ? (
         <Loading />
       ) : error ? (
@@ -202,14 +252,19 @@ export default function Dashboard() {
       ) : !filtered.length ? (
         <Empty
           title="No projects match."
-          description="Try another search or filter."
+          description="Try another search term or filter."
         />
       ) : (
         <div
           className={`project-grid ${view === "list" ? "project-list" : ""}`}
         >
-          {filtered.map((p) => (
-            <Link href={`/project/${p.id}`} className="project-card" key={p.id}>
+          {filtered.map((p, i) => (
+            <Link
+              href={`/project/${p.id}`}
+              className="project-card enter"
+              style={delay(Math.min(i, 8) * 60)}
+              key={p.id}
+            >
               <div className="row-between">
                 <span className="project-icon">
                   <FolderOpen size={22} />
@@ -226,7 +281,9 @@ export default function Dashboard() {
                 {p.industry || "Business strategy"}
               </div>
               <div className="row-between progress-label">
-                <span>Discovery completeness</span>
+                <span>
+                  <T text={"Discovery completeness"} />
+                </span>
                 <strong>{p.discovery_scores.overall || 0}%</strong>
               </div>
               <div className="progress-track">
@@ -240,22 +297,14 @@ export default function Dashboard() {
                 </div>
               )}
               <footer>
-                <span>Updated {date(p.updated_at)}</span>
+                <span>
+                  <T text={"Updated "} />
+                  {date(p.updated_at)}
+                </span>
                 <ArrowUpRight size={18} />
               </footer>
             </Link>
           ))}
-        </div>
-      )}
-      {health && !health.gemini_configured && (
-        <div className="setup-note">
-          <span className="tiny-orange" />
-          <span>
-            One connection away. Add your Gemini key to activate discovery.
-          </span>
-          <Link href="/settings">
-            Connection settings <ArrowRight size={14} />
-          </Link>
         </div>
       )}
     </Shell>

@@ -26,12 +26,18 @@ export async function api<T>(
     });
   } catch {
     throw new ApiError(
-      "Cannot reach the backend. Check that FastAPI is running on port 8000, then try again.",
+      "We couldn’t connect to your workspace. Please try again in a moment.",
       0,
     );
   }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
+    if (response.status >= 500) {
+      throw new ApiError(
+        "Your workspace is temporarily unavailable. Please try again shortly.",
+        response.status,
+      );
+    }
     const message =
       typeof data.detail === "string"
         ? data.detail

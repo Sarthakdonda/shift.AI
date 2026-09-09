@@ -1,3 +1,4 @@
+import { T } from "@/components/locale";
 import Link from "next/link";
 import { AlertCircle, LoaderCircle, ArrowRight } from "lucide-react";
 export function Loading({
@@ -26,7 +27,8 @@ export function ErrorBox({
         {message}
         {onRetry && (
           <button className="text-button" onClick={onRetry}>
-            Try again <ArrowRight size={14} />
+            <T text={"Try again "} />
+            <ArrowRight size={14} />
           </button>
         )}
       </div>

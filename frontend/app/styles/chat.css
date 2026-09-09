@@ -1,0 +1,326 @@
+/* ==========================================================================
+   shift.AI — conversation layout and model picker
+   Loaded after the earlier layers so these corrections win.
+   ========================================================================== */
+
+/* ---------- Sidebar: the project name was clipped by the section label ----------
+   .nav-label carries a negative bottom margin and .sidebar-project carried a
+   negative top margin, so the two boxes overlapped. Space them explicitly. */
+
+.sidebar .nav-label {
+  margin: 0 0 6px;
+}
+
+.sidebar .sidebar-project {
+  margin-top: 0;
+  margin-bottom: 6px;
+  padding: 10px 12px;
+  line-height: 1.45;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Keep the navigation reachable when the viewport is short. */
+.sidebar {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* ---------- A larger conversation ---------- */
+
+.discovery-layout {
+  /* Give the conversation clearly more room than the progress column. */
+  grid-template-columns: minmax(0, 2.15fr) minmax(0, 0.85fr);
+  gap: 22px;
+  align-items: start;
+}
+
+.conversation {
+  /* Fill the viewport height so the message area grows with the window. */
+  min-height: clamp(560px, calc(100vh - 210px), 1200px);
+}
+
+.messages {
+  /* Replaces the fixed 56vh cap that made the chat feel cramped. */
+  flex: 1;
+  max-height: none;
+  min-height: 320px;
+  padding: 24px 26px;
+  gap: 22px;
+}
+
+.message-content {
+  font-size: 14px;
+  line-height: 1.75;
+}
+
+/* The progress column scrolls with the conversation rather than running past it. */
+.discovery-sidebar {
+  position: sticky;
+  top: 18px;
+  max-height: calc(100vh - 36px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 2px;
+}
+
+.discovery-sidebar::-webkit-scrollbar,
+.messages::-webkit-scrollbar {
+  width: 9px;
+}
+
+.discovery-sidebar::-webkit-scrollbar-thumb,
+.messages::-webkit-scrollbar-thumb {
+  border-radius: 9px;
+  background: #d8dfe8;
+}
+
+@media (max-width: 1180px) {
+  .discovery-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .discovery-sidebar {
+    position: static;
+    max-height: none;
+  }
+
+  .conversation {
+    min-height: 0;
+  }
+}
+
+/* ---------- Composer ---------- */
+
+.composer {
+  margin: 0 26px;
+  padding: 16px;
+}
+
+.composer-bottom {
+  gap: 10px;
+}
+
+.composer-bottom > span {
+  font-size: 11px;
+}
+
+/* ---------- Model and effort picker ---------- */
+
+.model-picker {
+  position: relative;
+}
+
+.model-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 320px;
+  padding: 7px 10px;
+  border-radius: 9px;
+  border: 1px solid var(--line-2);
+  background: var(--paper-2);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 560;
+  cursor: pointer;
+  transition:
+    border-color var(--t) var(--ease),
+    background var(--t) var(--ease);
+}
+
+.model-trigger:hover:not(:disabled) {
+  border-color: var(--orange);
+  background: #fff;
+}
+
+.model-trigger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.model-trigger > svg:first-child {
+  color: var(--orange-600);
+  flex-shrink: 0;
+}
+
+.model-trigger-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.model-trigger-effort {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(255, 122, 0, 0.12);
+  color: var(--orange-600);
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+
+.model-trigger-caret {
+  color: var(--muted-2);
+  transform: rotate(-90deg);
+  flex-shrink: 0;
+}
+
+.model-menu {
+  position: absolute;
+  bottom: calc(100% + 9px);
+  left: 0;
+  z-index: 40;
+  width: min(330px, calc(100vw - 48px));
+  padding: 8px;
+  border-radius: 13px;
+  background: #131c27;
+  border: 1px solid #263241;
+  box-shadow: 0 26px 60px -20px rgba(4, 10, 18, 0.75);
+  animation: fade-up 0.16s var(--ease-out) both;
+}
+
+.model-menu-label {
+  padding: 6px 10px 8px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  color: #7d8798;
+}
+
+.model-menu-scroll {
+  display: grid;
+  gap: 2px;
+  max-height: 288px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.model-menu-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.model-menu-scroll::-webkit-scrollbar-thumb {
+  border-radius: 8px;
+  background: #2c3a4b;
+}
+
+.model-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 9px 11px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #e7ecf3;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--t) var(--ease);
+}
+
+.model-option:hover:not(:disabled),
+.model-option:focus-visible {
+  background: #1e2937;
+}
+
+.model-option:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.model-option > span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.model-option strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 580;
+  color: #f4f7fa;
+}
+
+.model-option small {
+  font-size: 11px;
+  line-height: 1.5;
+  color: #8b95a6;
+}
+
+.model-option.selected strong {
+  color: #fff;
+}
+
+.model-option > svg {
+  color: var(--orange);
+  flex-shrink: 0;
+}
+
+.model-effort-row {
+  margin-top: 6px;
+  padding-top: 12px;
+  border-top: 1px solid #253140;
+  border-radius: 0 0 9px 9px;
+}
+
+.model-effort-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 560;
+  color: #9aa4b4;
+  flex-shrink: 0;
+}
+
+.model-menu-back {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 7px 10px 9px;
+  border: 0;
+  background: transparent;
+  color: #9aa4b4;
+  font-size: 11px;
+  font-weight: 640;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.model-menu-back:hover {
+  color: #fff;
+}
+
+.model-menu-hint {
+  padding: 9px 11px 5px;
+  margin-top: 4px;
+  border-top: 1px solid #253140;
+  font-size: 11px;
+  line-height: 1.55;
+  color: #7d8798;
+}
+
+@media (max-width: 640px) {
+  .model-trigger {
+    max-width: 100%;
+  }
+
+  .model-menu {
+    left: auto;
+    right: 0;
+  }
+}

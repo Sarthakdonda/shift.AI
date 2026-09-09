@@ -6,6 +6,13 @@ from fastapi.responses import JSONResponse
 from pymongo.errors import PyMongoError
 from starlette.concurrency import run_in_threadpool
 from app.api.routes import router
+from app.api.workspaces import router as workspace_router
+from app.api.deliverables import router as deliverable_router
+from app.api.exports import router as export_router
+from app.api.portability import router as portability_router
+from app.api.outcomes import router as outcome_router
+from app.api.localization import router as localization_router
+from app.api.integrations import router as integration_router
 from app.core.auth import router as auth_router
 from app.core.config import get_settings
 from app.core.errors import AppError
@@ -63,3 +70,10 @@ async def unexpected_error(request, exc):
 
 app.include_router(auth_router)
 app.include_router(router)
+app.include_router(workspace_router)
+app.include_router(deliverable_router)
+app.include_router(export_router)
+app.include_router(portability_router)
+app.include_router(outcome_router)
+app.include_router(localization_router)
+app.include_router(integration_router)

@@ -5,10 +5,11 @@ import zipfile
 from pathlib import PurePath
 from pypdf import PdfReader
 from docx import Document
+from pptx import Presentation
 from openpyxl import load_workbook
 from app.core.errors import AppError
 
-SUPPORTED = {'.pdf', '.docx', '.txt', '.csv', '.xlsx'}
+SUPPORTED = {'.pdf', '.docx', '.pptx', '.txt', '.csv', '.xlsx'}
 MAX_CHARS = 500_000
 
 
@@ -16,20 +17,20 @@ def validate_file(filename, data, max_mb=15):
     name = PurePath(filename.replace('\\', '/')).name[:180]
     ext = PurePath(name).suffix.lower()
     if ext not in SUPPORTED:
-        raise AppError('Choose a PDF, DOCX, TXT, CSV, or XLSX file.', 415)
+        raise AppError('Choose a PDF, DOCX, PPTX, TXT, CSV, or XLSX file.', 415)
     if not data:
         raise AppError('This file is empty.')
     if len(data) > max_mb * 1024 * 1024:
         raise AppError(f'Files must be {max_mb} MB or smaller.', 413)
     if ext == '.pdf' and not data.startswith(b'%PDF-'):
         raise AppError('The file contents do not match a valid PDF.')
-    if ext in ('.docx', '.xlsx'):
+    if ext in ('.docx', '.xlsx', '.pptx'):
         if not zipfile.is_zipfile(io.BytesIO(data)):
             raise AppError('The file contents do not match an Office document.')
         with zipfile.ZipFile(io.BytesIO(data)) as archive:
             if sum(i.file_size for i in archive.infolist()) > 50 * 1024 * 1024:
                 raise AppError('This document expands beyond the safe processing limit.', 413)
-            required = 'word/document.xml' if ext == '.docx' else 'xl/workbook.xml'
+            required = {'.docx': 'word/document.xml', '.xlsx': 'xl/workbook.xml', '.pptx': 'ppt/presentation.xml'}[ext]
             if required not in archive.namelist():
                 raise AppError('The document format does not match its extension.')
     return name, ext
@@ -49,6 +50,20 @@ def extract(data: bytes, ext: str):
             text = '\n'.join(p.text for p in doc.paragraphs)
             text += '\n' + '\n'.join(' | '.join(c.text for c in row.cells) for t in doc.tables for row in t.rows)
             pages = [(1, text)]
+        elif ext == '.pptx':
+            presentation = Presentation(stream)
+            if len(presentation.slides) > 300:
+                raise AppError('Please upload a presentation with 300 slides or fewer.')
+            for i, slide in enumerate(presentation.slides):
+                text = []
+                for shape in slide.shapes:
+                    if shape.has_text_frame:
+                        text.append(shape.text)
+                    if shape.has_table:
+                        text.extend(' | '.join(c.text for c in row.cells) for row in shape.table.rows)
+                if slide.has_notes_slide:
+                    text.append(slide.notes_slide.notes_text_frame.text)
+                pages.append((i + 1, '\n'.join(text)))
         elif ext == '.xlsx':
             wb = load_workbook(stream, read_only=True, data_only=True)
             try:

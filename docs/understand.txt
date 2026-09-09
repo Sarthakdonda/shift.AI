@@ -1,0 +1,1939 @@
+SHIFT.AI — MASTER PROJECT UNDERSTANDING / IMPLEMENTATION CONTEXT
+File purpose: Give this entire file to an AI coding assistant before asking it to build, modify, debug, explain, or present the shift.AI project.
+
+======================================================================
+0. IMPORTANT INSTRUCTION TO THE AI READING THIS FILE
+======================================================================
+
+You are working on a hackathon project called shift.AI.
+
+Do NOT treat shift.AI as a normal chatbot, a generic AI consultant, or a simple “recommend me an AI tool” application.
+
+The core idea is different:
+
+Most AI assistants jump directly from a user's request to a solution.
+
+Example:
+User: “I run a hospital and I need AI.”
+Normal AI: “Use an AI chatbot, predictive analytics, automation, OCR, etc.”
+
+shift.AI must NOT behave like that.
+
+shift.AI first understands the organization, current workflow, people, software, pain points, constraints, documents, data readiness, budget, risk, and the actual business objective.
+
+Only after understanding the current system does shift.AI decide:
+
+1. AI is genuinely needed, OR
+2. AI is not needed and the problem should be solved by:
+   - workflow improvement,
+   - process redesign,
+   - staff/process changes,
+   - automation without AI,
+   - integration of existing software,
+   - replacement/configuration of an existing tool,
+   - better reporting/data collection,
+   - training,
+   - or another lower-cost solution.
+
+If AI is justified, shift.AI should produce a practical AI solution blueprint, explain why it is needed, how it fits into the existing workflow, what it replaces or augments, what data is required, what risks exist, and how it can be implemented safely.
+
+shift.AI is therefore an:
+“AI Solution Architect + AI Readiness Consultant + Workflow Analyst + Red-Team Reviewer”
+rather than only a chatbot.
+
+This principle is the foundation of the entire product.
+
+======================================================================
+1. ONE-LINE PRODUCT DEFINITION
+======================================================================
+
+shift.AI is an AI decision and solution architecture platform that deeply understands a business or organization before recommending AI, verifies whether AI is actually necessary, designs the right solution when justified, and continuously stress-tests the proposed solution for risks, weaknesses, cost, feasibility, and unnecessary complexity.
+
+======================================================================
+2. THE PROBLEM shift.AI SOLVES
+======================================================================
+
+Current AI assistants have a common problem:
+
+A user describes a requirement and the AI immediately gives recommendations.
+
+The missing step is understanding the real environment in which that recommendation will be used.
+
+Organizations often say:
+- “We need AI.”
+- “We need a chatbot.”
+- “We need an AI receptionist.”
+- “We need automation.”
+- “We need predictive analytics.”
+- “We need AI in our hospital.”
+- “We need AI for customer support.”
+
+But the actual problem may be something completely different.
+
+For example:
+- data may be stored badly,
+- staff may be doing duplicate work,
+- the current software may already have the needed feature,
+- two systems may simply need integration,
+- the workflow may be badly designed,
+- a normal rules-based automation may be enough,
+- employees may need training,
+- the organization may not yet be AI-ready,
+- AI may cost more than the problem is worth,
+- AI may create privacy/security/compliance risk,
+- the user may be trying to automate a symptom rather than fix the root cause.
+
+Normal AI often optimizes for answering quickly.
+shift.AI optimizes for recommending the right change.
+
+This is the key differentiation.
+
+======================================================================
+3. PRODUCT PHILOSOPHY
+======================================================================
+
+shift.AI follows these rules:
+
+RULE 1 — UNDERSTAND BEFORE RECOMMENDING
+Never recommend an AI system immediately from the first user message unless enough context already exists.
+
+RULE 2 — ASK ONLY USEFUL QUESTIONS
+Questions must be dynamic and based on the user's organization, goal, current workflow, and missing information.
+Do not show a huge generic questionnaire all at once.
+
+RULE 3 — FIND THE ROOT CAUSE
+The user's requested technology is not automatically the actual solution.
+
+RULE 4 — AI IS NOT ALWAYS THE ANSWER
+The system must be comfortable saying:
+“You do not need AI for this.”
+
+RULE 5 — RECOMMEND THE MINIMUM EFFECTIVE CHANGE
+Prefer the simplest solution that creates measurable value.
+
+RULE 6 — USE EXISTING SYSTEMS WHEN POSSIBLE
+If the current tools can solve the problem through configuration, integration, or workflow changes, recommend that instead of unnecessary AI.
+
+RULE 7 — EXPLAIN WHY
+Every recommendation must include reasoning understandable by a business owner and enough technical depth for a developer.
+
+RULE 8 — RED-TEAM THE SOLUTION
+The first generated solution is not automatically accepted.
+It must be attacked for failure modes, risk, feasibility, security, privacy, cost, hallucinations, bad assumptions, integration problems, and unnecessary complexity.
+
+RULE 9 — ITERATIVELY IMPROVE
+The final recommendation should reflect fixes suggested during the critique/red-team phase.
+
+RULE 10 — BUILD TRUST
+The product should feel like a professional consultant/architect, not a flashy generic AI chat application.
+
+======================================================================
+4. TARGET USERS
+======================================================================
+
+Primary users:
+- small and medium business owners,
+- startups,
+- hospitals/clinics,
+- schools,
+- operations teams,
+- enterprises exploring AI,
+- product managers,
+- founders,
+- business analysts,
+- innovation teams,
+- consultants,
+- technical teams that need an AI implementation blueprint.
+
+The system should remain domain-flexible.
+
+A hospital example is useful for demonstrating the concept, but the platform must not be hard-coded for healthcare only.
+
+======================================================================
+5. MAIN USER JOURNEY
+======================================================================
+
+The full user journey should work approximately like this.
+
+STEP 1 — USER ARRIVES
+The landing page explains that shift.AI does not blindly recommend AI.
+It first understands the organization and identifies the real problem.
+
+Primary action:
+“Describe what you want to improve”
+
+The user can begin in natural language.
+
+Example:
+“I own a hospital and I want an AI system to reduce patient waiting time.”
+
+STEP 2 — INITIAL INTENT UNDERSTANDING
+shift.AI identifies:
+- organization/domain,
+- stated goal,
+- requested AI/technology if any,
+- likely business process involved,
+- important missing information,
+- early assumptions that must be verified.
+
+The system should not yet present a final solution.
+
+STEP 3 — DISCOVERY / CONTEXT COLLECTION
+shift.AI starts a guided conversation.
+
+Possible information categories:
+- organization type,
+- team size,
+- user/customer volume,
+- current process,
+- current software/tools,
+- current data sources,
+- what employees currently do manually,
+- where time is lost,
+- exact pain points,
+- frequency of the problem,
+- business impact,
+- desired outcome,
+- existing integrations,
+- security/privacy requirements,
+- budget,
+- expected timeline,
+- technical team availability,
+- regulatory constraints,
+- existing AI usage,
+- data quality,
+- deployment preference,
+- success metrics.
+
+Questions must be selected dynamically.
+
+Do NOT require every field for every user.
+
+STEP 4 — DOCUMENT / FILE UNDERSTANDING
+The user can optionally upload supporting material such as:
+- PDFs,
+- Word documents,
+- spreadsheets,
+- text documents,
+- exported workflows,
+- SOPs,
+- process documents,
+- requirement documents,
+- current system descriptions,
+- architecture documents,
+- screenshots/images where supported,
+- reports,
+- policies,
+- sample forms,
+- sample datasets where safe.
+
+Uploaded material should be processed and converted into structured context.
+
+The system should extract things such as:
+- existing workflow,
+- roles,
+- tools,
+- bottlenecks,
+- repeated tasks,
+- dependencies,
+- data fields,
+- current architecture,
+- policies and restrictions,
+- stated requirements,
+- inconsistencies with the user's verbal description.
+
+The system must not simply summarize the file.
+It must use the file to improve its understanding of the business.
+
+STEP 5 — CURRENT-STATE MODEL
+Before proposing a solution, shift.AI should internally build a structured “current state” understanding.
+
+Example structure:
+- Business objective
+- Current workflow
+- People involved
+- Current tools
+- Data sources
+- Pain points
+- Root causes
+- Constraints
+- Risks
+- Known unknowns
+- AI readiness
+- Success criteria
+
+This structured context becomes the basis for later recommendations.
+
+STEP 6 — ROOT-CAUSE ANALYSIS
+shift.AI analyzes whether the user's requested AI feature actually addresses the root cause.
+
+Example:
+User says:
+“We need an AI receptionist because calls are being missed.”
+
+Possible finding:
+The clinic already has an appointment platform with online booking but patients do not know about it and the phone routing is badly configured.
+
+A better recommendation may be:
+- fix call routing,
+- enable missed-call callback,
+- promote online booking,
+- integrate notifications,
+- measure call abandonment.
+
+An AI voice agent may be considered later only if the remaining call volume justifies it.
+
+STEP 7 — AI-NEED / SOLUTION DECISION
+shift.AI classifies the recommended direction.
+
+Possible decision types:
+
+A. NO-AI SOLUTION
+AI adds little value or creates unnecessary cost/risk.
+
+B. PROCESS-FIRST
+Fix process/data/software first. Re-evaluate AI later.
+
+C. AUTOMATION WITHOUT AI
+Use deterministic workflow automation, integrations, rules, or scripts.
+
+D. EXISTING-SOFTWARE OPTIMIZATION
+Configure or integrate tools the organization already has.
+
+E. BUY / ADOPT EXISTING AI
+A mature existing AI product solves the need better than building from scratch.
+
+F. BUILD CUSTOM AI
+A custom AI system is justified.
+
+G. HYBRID
+Use a mix of process redesign, standard automation, existing software, and AI.
+
+This decision should be visible to the user.
+
+STEP 8 — SOLUTION ARCHITECTURE
+When AI or a technical solution is justified, generate a blueprint.
+
+Blueprint should include:
+- problem statement,
+- current state,
+- root cause,
+- target state,
+- why this solution was selected,
+- why alternatives were rejected,
+- high-level architecture,
+- modules/components,
+- AI model responsibility,
+- non-AI logic,
+- data flow,
+- integrations,
+- APIs,
+- database/data storage,
+- user roles,
+- security considerations,
+- human-in-the-loop points,
+- fallback behavior,
+- monitoring,
+- implementation phases,
+- required team/skills,
+- estimated complexity,
+- cost considerations,
+- risks,
+- measurable KPIs,
+- MVP scope,
+- future scope.
+
+STEP 9 — RED TEAM / CRITIQUE
+The proposed solution is attacked by a separate critical reasoning stage.
+
+The red team should try to break the recommendation.
+
+It should ask:
+- Is AI really necessary?
+- Is this over-engineered?
+- Did we assume data exists?
+- Is the data good enough?
+- What happens when the model is wrong?
+- Could this violate privacy?
+- Could this expose sensitive data?
+- Can the existing software already do this?
+- Is a rules engine enough?
+- Is the projected value realistic?
+- Is there vendor lock-in?
+- Is the solution affordable?
+- Does the organization have the required technical capability?
+- What is the failure mode?
+- What should happen during API downtime?
+- Can a human override the system?
+- Is there an audit trail?
+- Could hallucinations cause harm?
+- Are permissions/roles properly defined?
+- Is the workflow actually improved or only made more complex?
+- Are there regulatory/compliance concerns?
+- What assumptions are unverified?
+
+STEP 10 — SOLUTION REFINEMENT
+The architect stage receives the critique and modifies the solution.
+
+The final answer should mention important changes that resulted from the red-team analysis.
+
+Example:
+“Initial idea: autonomous AI appointment scheduler.
+Red-team finding: full autonomy creates scheduling and patient-safety risk.
+Final design: AI gathers intent and suggests slots, but existing scheduling software remains the source of truth and confirms the booking.”
+
+STEP 11 — FINAL REPORT / DECISION OUTPUT
+The user receives a professional decision report rather than a generic chat answer.
+
+Suggested sections:
+1. What we understood
+2. The real problem
+3. Current-state summary
+4. Key bottlenecks
+5. AI readiness
+6. Do you actually need AI?
+7. Recommended solution
+8. Why this recommendation
+9. Proposed workflow
+10. Proposed architecture
+11. Required integrations
+12. Data requirements
+13. Red-team findings
+14. Risk controls
+15. Implementation roadmap
+16. Estimated effort/complexity
+17. Success metrics
+18. Next steps
+
+STEP 12 — CONTINUED ITERATION
+The user can:
+- answer more questions,
+- change constraints,
+- upload more documents,
+- revise budget,
+- revise the use case,
+- ask for an MVP,
+- ask for technical architecture,
+- ask for implementation phases,
+- ask for an executive version,
+- ask for a developer version.
+
+The current project context should persist within the session.
+
+======================================================================
+6. CORE DIFFERENTIATORS FROM NORMAL AI SERVICES
+======================================================================
+
+These differences are extremely important for the hackathon pitch.
+
+1. DISCOVERY-FIRST AI
+Normal assistants answer.
+shift.AI investigates.
+
+2. AI-NEED VALIDATION
+shift.AI can explicitly decide that AI is not required.
+
+3. CURRENT-SYSTEM AWARENESS
+Recommendations are based on the organization's existing workflow, people, tools, and data.
+
+4. DYNAMIC QUESTIONING
+The next question changes based on previous answers.
+It should not feel like a static survey.
+
+5. DOCUMENT-AWARE CONSULTING
+Uploaded files become part of the business/system understanding.
+
+6. ROOT-CAUSE ORIENTATION
+The system tries to solve the real bottleneck, not blindly implement the requested technology.
+
+7. RED-TEAM LOOP
+Recommendations are challenged before they reach the user.
+
+8. SOLUTION REFINEMENT
+The red-team findings actively modify the final proposal.
+
+9. PROCESS + SOFTWARE + AI
+The recommendation space is wider than “which AI model should I use?”
+
+10. BUSINESS + TECHNICAL OUTPUT
+The same system connects business goals with implementation architecture.
+
+11. EXPLAINABLE DECISIONS
+The user can understand why AI was or was not selected.
+
+12. IMPLEMENTATION BLUEPRINT
+The output is actionable enough to hand to a development team.
+
+13. COST / COMPLEXITY AWARENESS
+The platform avoids over-engineering.
+
+14. RISK-AWARE DESIGN
+Security, privacy, reliability, human oversight, and model failure are considered from the beginning.
+
+15. VENDOR / MODEL FLEXIBILITY
+Core application logic should not be tightly coupled to one AI vendor.
+
+======================================================================
+7. INTERNAL AI ORCHESTRATION
+======================================================================
+
+The application can be implemented as an orchestrated multi-stage AI workflow.
+
+Conceptual agents/stages:
+
+A. DISCOVERY AGENT
+Responsibility:
+Understand the user's goal and identify missing context.
+
+Output:
+- interpreted request,
+- extracted facts,
+- missing information,
+- next best question(s).
+
+B. BUSINESS / WORKFLOW ANALYST
+Responsibility:
+Map the current workflow and find bottlenecks/root causes.
+
+Output:
+- current state,
+- process issues,
+- root-cause hypotheses,
+- improvement opportunities.
+
+C. AI READINESS EVALUATOR
+Responsibility:
+Evaluate whether the organization is ready for AI.
+
+Dimensions may include:
+- data availability,
+- data quality,
+- integration readiness,
+- process maturity,
+- staff readiness,
+- security/privacy,
+- governance,
+- budget,
+- expected ROI,
+- model risk.
+
+D. SOLUTION ARCHITECT
+Responsibility:
+Generate candidate solutions and select the minimum effective design.
+
+E. RED-TEAM AGENT
+Responsibility:
+Criticize and attack the proposed solution.
+
+F. REFINEMENT / JUDGE STAGE
+Responsibility:
+Compare recommendation vs critique, resolve conflicts, and build the final solution.
+
+G. REPORT GENERATOR
+Responsibility:
+Turn structured results into an understandable professional report.
+
+These do not have to be separate external AI models.
+They may be prompts/stages using the same provider, but code should keep them logically separated.
+
+======================================================================
+8. AI DECISION LOGIC
+======================================================================
+
+Do not base the final decision only on the LLM's unstructured opinion.
+
+Use structured outputs.
+
+Example internal assessment:
+
+ai_need_score: 0-100
+data_readiness_score: 0-100
+process_readiness_score: 0-100
+integration_readiness_score: 0-100
+risk_score: 0-100
+expected_value_score: 0-100
+complexity_score: 0-100
+confidence: 0-100
+
+These values are decision aids, not fake scientific measurements.
+
+The UI must explain what drives them.
+
+Possible logic:
+- high AI value + good readiness + manageable risk -> consider AI
+- low AI value -> prefer non-AI solution
+- high AI value + poor data/process readiness -> process-first roadmap
+- high risk -> human-in-the-loop / limited automation / stronger controls
+- existing system capability found -> configure/integrate before custom build
+
+The final decision should come from structured evidence plus AI reasoning.
+
+======================================================================
+9. QUESTIONING ENGINE
+======================================================================
+
+The questioning flow is one of the most important product features.
+
+BAD:
+Display 30 fixed fields immediately.
+
+GOOD:
+Ask 1-3 high-value questions based on what is missing.
+
+Example:
+
+User:
+“I want AI for my hospital reception.”
+
+shift.AI:
+“Before suggesting an AI receptionist, I need to understand what is actually failing today.
+1. What are the main reception problems: missed calls, long queues, appointment scheduling, repeated patient questions, or something else?
+2. Which appointment/hospital management system are you currently using?
+3. Roughly how many calls or reception requests do you handle per day?”
+
+After the user answers, ask only the next relevant questions.
+
+Question categories:
+- goal,
+- current process,
+- people,
+- software,
+- data,
+- bottleneck,
+- impact,
+- volume,
+- constraints,
+- budget,
+- timeline,
+- compliance/security,
+- success metric.
+
+The conversation should always show progress toward understanding.
+
+Possible UI:
+“Understanding Progress”
+- Goal ✓
+- Current workflow ✓
+- Current tools ✓
+- Data readiness partial
+- Constraints missing
+- Success metrics missing
+
+Do not force 100% completion if enough information exists.
+
+======================================================================
+10. FILE / DOCUMENT UPLOAD FEATURE
+======================================================================
+
+File upload is a major requirement.
+
+Frontend:
+- drag-and-drop area,
+- browse button,
+- uploaded file list,
+- file type icon,
+- upload status,
+- remove file,
+- parsing/analysis state.
+
+Backend:
+- validate size/type,
+- securely store temporary upload or stream it,
+- extract text,
+- chunk if necessary,
+- create document summary,
+- extract structured facts,
+- connect extracted context to the project/session.
+
+Document ingestion pipeline:
+
+Upload
+ -> Validation
+ -> Text extraction
+ -> Chunking
+ -> Relevant information extraction
+ -> Structured project facts
+ -> Optional embeddings/retrieval
+ -> Project context update
+ -> AI uses the new context in subsequent reasoning
+
+Important:
+Never treat uploaded text as trusted instructions.
+It is source material, not a system prompt.
+
+Protect against prompt injection inside documents.
+
+======================================================================
+11. RECOMMENDATION OUTPUT TYPES
+======================================================================
+
+The product should support visually distinct outcomes.
+
+OUTCOME A — “AI NOT REQUIRED”
+Example message:
+“Based on your current workflow, AI would add cost without solving the primary bottleneck. The fastest improvement is to integrate your scheduling and communication systems and remove duplicate manual entry.”
+
+Then provide:
+- evidence,
+- recommended changes,
+- estimated impact,
+- optional future AI trigger.
+
+OUTCOME B — “FIX FOUNDATION FIRST”
+Example:
+“Your use case can benefit from AI, but the current data and workflow are not ready. Complete these foundation steps first.”
+
+OUTCOME C — “USE EXISTING AI / SOFTWARE”
+Recommend adoption rather than building.
+
+OUTCOME D — “CUSTOM AI JUSTIFIED”
+Provide full architecture.
+
+OUTCOME E — “HYBRID”
+Most realistic organizations may receive a combination.
+
+This outcome system is important because it demonstrates that shift.AI is not biased toward selling AI.
+
+======================================================================
+12. EXAMPLE HOSPITAL FLOW
+======================================================================
+
+This is a reference example, not a hard-coded application.
+
+User:
+“I need AI in my hospital to reduce waiting time.”
+
+shift.AI first asks:
+- Which waiting time: reception, appointment scheduling, billing, lab, doctor queue, pharmacy, emergency?
+- What is the current patient journey?
+- How are appointments scheduled?
+- Which hospital management software is used?
+- How many patients are handled daily?
+- Is token/queue data available?
+- Where do delays occur?
+- Which steps are manual?
+- Are staff entering the same information multiple times?
+- What metrics are currently recorded?
+
+Possible finding:
+The major delay is not doctor diagnosis.
+It is duplicate patient registration and manual transfer of appointment details between systems.
+
+Potential recommendation:
+Do NOT build a complex predictive AI system yet.
+First:
+- integrate registration and scheduling,
+- use one patient ID,
+- remove duplicate data entry,
+- add queue visibility,
+- collect timestamps.
+
+After collecting reliable queue data, AI forecasting can later predict peak loads and staffing requirements.
+
+This example clearly demonstrates shift.AI's philosophy.
+
+======================================================================
+13. RED TEAM DESIGN
+======================================================================
+
+The red-team feature must not be cosmetic.
+
+It should produce structured critique.
+
+Suggested critique schema:
+
+{
+  "assumptions": [],
+  "unnecessary_ai": [],
+  "technical_risks": [],
+  "business_risks": [],
+  "privacy_security_risks": [],
+  "integration_risks": [],
+  "data_risks": [],
+  "failure_scenarios": [],
+  "cost_concerns": [],
+  "human_oversight_requirements": [],
+  "recommended_changes": [],
+  "severity": {}
+}
+
+The refinement stage must consume this critique.
+
+Potential visible UI:
+“Red-Team Review”
+- 3 high-risk issues found
+- 5 assumptions challenged
+- 4 architecture improvements applied
+
+Example:
+Original:
+AI automatically replies to patients and modifies appointments.
+
+Critique:
+AI can misunderstand urgency and scheduling constraints.
+
+Refined:
+AI handles FAQs and collects appointment intent.
+Actual booking occurs through the existing scheduling system.
+Critical messages are escalated to staff.
+All AI actions are logged.
+
+This is much more defensible in a hackathon demo.
+
+======================================================================
+14. FINAL REPORT DATA MODEL
+======================================================================
+
+A final assessment may contain:
+
+project_id
+title
+organization
+industry
+goal
+stated_request
+current_state
+current_workflow
+pain_points[]
+root_causes[]
+current_tools[]
+uploaded_documents[]
+constraints[]
+data_sources[]
+ai_readiness
+recommendation_type
+recommendation_summary
+recommended_changes[]
+solution_architecture
+components[]
+integrations[]
+data_flow[]
+security_controls[]
+human_in_loop_points[]
+assumptions[]
+red_team_findings[]
+resolved_findings[]
+implementation_phases[]
+mvp_scope[]
+future_scope[]
+success_metrics[]
+estimated_complexity
+cost_notes
+confidence
+created_at
+updated_at
+
+Use structured JSON internally, then generate readable output.
+
+======================================================================
+15. PRODUCT PAGES / FRONTEND
+======================================================================
+
+Recommended app structure:
+
+1. LANDING PAGE
+Purpose:
+Explain the value quickly.
+
+Suggested message:
+“Don’t start with AI. Start with the real problem.”
+or equivalent shift.AI messaging.
+
+Explain:
+- Tell us what you want to improve.
+- We understand your current system.
+- We decide whether AI is actually needed.
+- We design and red-team the solution.
+
+2. NEW ASSESSMENT / WORKSPACE
+Contains:
+- project title,
+- conversation,
+- context progress,
+- optional organization details,
+- uploads.
+
+3. DISCOVERY CHAT
+Main interaction surface.
+
+4. CONTEXT / CURRENT STATE PANEL
+Shows what shift.AI currently understands.
+
+5. UPLOAD / KNOWLEDGE PANEL
+Shows supplied files.
+
+6. ANALYSIS / READINESS PAGE
+Shows:
+- root cause,
+- AI readiness,
+- process readiness,
+- risk,
+- decision.
+
+7. SOLUTION BLUEPRINT PAGE
+Shows architecture and recommendation.
+
+8. RED-TEAM REVIEW PAGE
+Shows identified issues and fixes.
+
+9. FINAL REPORT PAGE
+Clean professional output.
+
+10. PROJECT HISTORY
+Optional for MVP if time allows.
+
+======================================================================
+16. UI / UX PRINCIPLES
+======================================================================
+
+The project should look professional, clean, modern, and intentionally designed.
+
+Do NOT make it look like a random AI-generated SaaS template.
+
+Visual direction:
+- clean light theme,
+- strong whitespace,
+- restrained use of accent color,
+- modern typography,
+- clear hierarchy,
+- subtle borders,
+- minimal unnecessary gradients,
+- consistent spacing,
+- rounded elements only where appropriate,
+- simple icons,
+- readable report cards,
+- architecture/flow visuals should feel technical and professional.
+
+Use the approved shift.AI brand/logo and finalized project color palette from the project assets.
+Do not replace the established branding with a new random theme.
+
+The UI should communicate “professional AI architecture/consulting platform.”
+
+Important responsive behavior:
+- desktop should use available width intelligently,
+- mobile/tablet should remain usable,
+- no horizontal overflow,
+- no clipped text,
+- no content outside cards,
+- no overlapping buttons,
+- no broken loading states.
+
+======================================================================
+17. SOFTWARE ARCHITECTURE
+======================================================================
+
+The repository MUST have clear frontend and backend separation.
+
+Recommended structure:
+
+shift-ai/
+|
+|-- frontend/
+|   |-- src/
+|   |   |-- components/
+|   |   |-- pages/
+|   |   |-- features/
+|   |   |-- hooks/
+|   |   |-- services/
+|   |   |-- store/
+|   |   |-- lib/
+|   |   |-- types/
+|   |   |-- assets/
+|   |   `-- styles/
+|   |-- public/
+|   |-- .env.example
+|   |-- package.json
+|   `-- README.md
+|
+|-- backend/
+|   |-- app/
+|   |   |-- api/
+|   |   |-- agents/
+|   |   |-- services/
+|   |   |-- models/
+|   |   |-- schemas/
+|   |   |-- prompts/
+|   |   |-- orchestration/
+|   |   |-- document_processing/
+|   |   |-- repositories/
+|   |   |-- security/
+|   |   |-- utils/
+|   |   `-- main.*
+|   |-- tests/
+|   |-- .env.example
+|   |-- requirements.txt or equivalent
+|   `-- README.md
+|
+|-- docs/
+|-- README.md
+|-- .gitignore
+`-- optional deployment/config files
+
+Do not put the whole project into one folder with mixed frontend/backend files.
+
+======================================================================
+18. TECHNOLOGY GUIDELINES
+======================================================================
+
+Use a modern, hackathon-friendly stack.
+
+A suitable implementation is:
+
+Frontend:
+- React
+- Vite or equivalent
+- TypeScript
+- Tailwind CSS or a consistent styling system
+- component library only if it improves speed without making UI generic
+- state/query layer as needed
+
+Backend:
+- Python + FastAPI is a strong choice for AI orchestration
+OR preserve the backend stack already selected in the existing project if implementation has started.
+
+AI provider:
+- Keep provider logic behind an adapter/service layer.
+- Google Gemini APIs can be used where appropriate.
+- Do not spread provider-specific calls across controllers/components.
+
+Database:
+- lightweight database for hackathon MVP,
+- SQLite/PostgreSQL/Supabase depending deployment needs,
+- maintain clear repository/data-access layer.
+
+File parsing:
+- PDF parser,
+- DOCX parser,
+- spreadsheet reader,
+- plain-text parser,
+- secure validation.
+
+Do not introduce unnecessary infrastructure for the hackathon.
+
+======================================================================
+19. API / ENVIRONMENT CONFIGURATION REQUIREMENT
+======================================================================
+
+A major implementation requirement:
+
+The project should be able to start once the developer adds required API keys to .env files.
+
+Do not hard-code secrets.
+
+Provide:
+frontend/.env.example
+backend/.env.example
+
+Example backend variables:
+
+AI_PROVIDER=google
+GOOGLE_API_KEY=
+GOOGLE_MODEL=
+DATABASE_URL=
+APP_ENV=development
+FRONTEND_URL=http://localhost:5173
+MAX_UPLOAD_SIZE_MB=
+SECRET_KEY=
+
+Add any additional Google API variables only if the selected integration actually needs them.
+
+If Google OAuth, Drive, Calendar, Gmail, Maps, Speech, or other Google services are used:
+- isolate each integration in a service module,
+- load credentials from environment variables,
+- provide placeholders in .env.example,
+- fail gracefully when an optional integration is not configured.
+
+The developer should NOT need to rewrite application logic just to insert API credentials.
+
+Expected workflow:
+1. clone project,
+2. install frontend dependencies,
+3. install backend dependencies,
+4. copy .env.example to .env,
+5. add API keys,
+6. start backend,
+7. start frontend,
+8. core application works.
+
+Target:
+After valid keys are inserted, approximately all core hackathon functionality should work without manual code edits.
+
+======================================================================
+20. BACKEND MODULE RESPONSIBILITIES
+======================================================================
+
+api/
+Routes only.
+Do not put large business logic inside route handlers.
+
+agents/
+Prompts and logic for:
+- discovery,
+- workflow analysis,
+- readiness,
+- architecture,
+- red team,
+- refinement,
+- report.
+
+orchestration/
+Controls the sequence of AI stages.
+
+services/
+Business services:
+- project service,
+- conversation service,
+- AI provider service,
+- document service,
+- report service.
+
+document_processing/
+- validators,
+- parsers,
+- chunking,
+- extraction,
+- retrieval/context logic.
+
+models/
+Database models.
+
+schemas/
+API request/response and structured AI output schemas.
+
+prompts/
+Versioned system prompts.
+Avoid huge prompt strings scattered across source files.
+
+repositories/
+Database queries.
+
+security/
+Upload security, input handling, secrets rules, permissions if authentication exists.
+
+======================================================================
+21. SUGGESTED API ENDPOINTS
+======================================================================
+
+Example API surface:
+
+GET /api/health
+
+POST /api/projects
+GET /api/projects/{project_id}
+PATCH /api/projects/{project_id}
+
+POST /api/projects/{project_id}/messages
+GET /api/projects/{project_id}/messages
+
+POST /api/projects/{project_id}/files
+GET /api/projects/{project_id}/files
+DELETE /api/projects/{project_id}/files/{file_id}
+
+GET /api/projects/{project_id}/context
+POST /api/projects/{project_id}/analyze
+
+GET /api/projects/{project_id}/readiness
+GET /api/projects/{project_id}/recommendation
+
+POST /api/projects/{project_id}/red-team
+GET /api/projects/{project_id}/red-team
+
+POST /api/projects/{project_id}/refine
+POST /api/projects/{project_id}/report
+GET /api/projects/{project_id}/report
+
+Exact endpoint names may change, but separation of responsibilities should remain.
+
+======================================================================
+22. STRUCTURED AI OUTPUTS
+======================================================================
+
+Avoid relying on fragile free-form model output.
+
+Use JSON-schema/Pydantic/Zod-style structured outputs wherever possible.
+
+Discovery output:
+{
+  "facts": [],
+  "assumptions": [],
+  "missing_information": [],
+  "next_questions": [],
+  "understanding_confidence": 0
+}
+
+Workflow analysis:
+{
+  "workflow_steps": [],
+  "pain_points": [],
+  "root_causes": [],
+  "current_tools": [],
+  "opportunities": []
+}
+
+Decision:
+{
+  "recommendation_type": "no_ai | process_first | automation | existing_solution | custom_ai | hybrid",
+  "ai_need_score": 0,
+  "reasoning_summary": "",
+  "evidence": [],
+  "prerequisites": []
+}
+
+Red-team:
+structured schema described earlier.
+
+Final architecture:
+structured components + integrations + flow.
+
+Always validate model output before storing it.
+
+======================================================================
+23. SECURITY / TRUST REQUIREMENTS
+======================================================================
+
+Even for a hackathon MVP, show responsible engineering.
+
+Must include:
+- API keys only in environment variables,
+- file type validation,
+- file size limits,
+- sanitized filenames,
+- no executing uploaded files,
+- uploaded content treated as untrusted,
+- prompt-injection protection,
+- error handling,
+- logging without exposing secrets,
+- input length limits,
+- CORS configuration,
+- server-side AI calls when secrets are required,
+- clear fallback when provider API fails.
+
+Where the domain is high-risk (e.g. healthcare):
+- shift.AI is designing workflow/technology solutions, not replacing professionals,
+- recommendations should include human oversight,
+- avoid claiming clinical diagnosis functionality unless specifically designed and validated,
+- surface privacy/security concerns.
+
+======================================================================
+24. FAILURE / FALLBACK BEHAVIOR
+======================================================================
+
+Do not create a demo that works only on the happy path.
+
+Handle:
+- empty message,
+- malformed upload,
+- unsupported file,
+- oversized file,
+- file extraction failure,
+- AI API unavailable,
+- rate limit,
+- invalid AI JSON,
+- missing env key,
+- network error,
+- project not found,
+- partial context,
+- red-team failure.
+
+The frontend should display understandable messages.
+
+Never expose raw stack traces to users.
+
+======================================================================
+25. AI PROMPTING PRINCIPLES
+======================================================================
+
+All AI stages should know:
+
+- Do not assume the user needs AI.
+- Separate facts from assumptions.
+- Ask high-information questions.
+- Prefer measurable business outcomes.
+- Prefer process simplification over complexity.
+- Do not invent current system details.
+- Use uploaded documents as evidence.
+- Identify contradictions.
+- State uncertainty.
+- Consider existing tooling before custom development.
+- Consider total cost.
+- Consider integration.
+- Consider adoption by employees.
+- Consider model failure.
+- Consider security/privacy.
+- Require human oversight for consequential decisions.
+- Provide a practical implementation plan.
+
+======================================================================
+26. REPORT EXAMPLE FORMAT
+======================================================================
+
+FINAL DECISION
+
+Recommendation:
+PROCESS-FIRST + LIGHT AUTOMATION
+
+AI Need:
+LOW FOR MVP / POSSIBLE LATER
+
+Why:
+The current bottleneck is caused mainly by duplicate manual data entry and disconnected systems. A generative AI layer would not remove the underlying operational delay.
+
+WHAT WE UNDERSTOOD
+...
+
+ROOT CAUSE
+...
+
+CURRENT SYSTEM
+...
+
+RECOMMENDED CHANGES
+1. ...
+2. ...
+3. ...
+
+WHERE AI MAY HELP LATER
+...
+
+PROPOSED TARGET WORKFLOW
+...
+
+RED-TEAM FINDINGS
+...
+
+RISKS AND CONTROLS
+...
+
+MVP IMPLEMENTATION
+...
+
+SUCCESS METRICS
+...
+
+This style should make the value of shift.AI obvious.
+
+======================================================================
+27. HACKATHON REQUIREMENTS / JUDGING ALIGNMENT
+======================================================================
+
+The project and demo must clearly satisfy the major evaluation dimensions discussed for the hackathon.
+
+A. UNDERSTANDING OF THE PROBLEM
+Demonstrate:
+- AI tools often recommend before understanding.
+- Organizations can waste money by starting with technology instead of the root problem.
+- AI readiness and existing workflow are frequently ignored.
+- shift.AI solves this gap.
+
+The demo must make this obvious in the first minute.
+
+B. INNOVATION / DIFFERENTIATION
+Highlight:
+- discovery-first behavior,
+- AI-need validation,
+- ability to recommend no AI,
+- dynamic questioning,
+- document understanding,
+- root-cause analysis,
+- multi-stage architecture,
+- red-team critique,
+- automatic refinement,
+- business + technical blueprint.
+
+Do not pitch shift.AI as only “ChatGPT for businesses.”
+
+C. TECHNICAL APPROACH / HOW IT IS BUILT
+Show:
+- frontend/backend architecture,
+- staged AI orchestration,
+- structured outputs,
+- document-processing pipeline,
+- context model,
+- provider abstraction,
+- red-team loop,
+- security/error handling,
+- API-driven implementation,
+- environment-based secrets.
+
+The architecture must look feasible, not magical.
+
+D. PRACTICALITY / FEASIBILITY
+Show:
+- hackathon MVP is working,
+- system can accept real requirements,
+- dynamic questions work,
+- document upload works,
+- analysis works,
+- decision works,
+- red team works,
+- final report works,
+- API setup is straightforward,
+- architecture can scale later.
+
+E. BUSINESS VALUE / IMPACT
+Explain:
+shift.AI can:
+- stop unnecessary AI projects,
+- reduce wasted implementation cost,
+- improve ROI,
+- identify faster non-AI fixes,
+- improve implementation readiness,
+- expose project risk earlier,
+- reduce failed AI deployments,
+- help non-technical business owners make better decisions,
+- create clearer specifications for development teams.
+
+Possible business model:
+- SaaS subscription,
+- pay-per-assessment,
+- enterprise licenses,
+- consulting/partner version,
+- white-label solution for AI consultancies.
+
+F. RESPONSIBLE AI
+Show:
+- AI is not automatically chosen,
+- risks are explicitly reviewed,
+- human oversight is built into high-risk designs,
+- model failures are considered,
+- privacy/security are part of architecture,
+- recommendations are explainable.
+
+G. DEMO QUALITY
+The demo should tell a story.
+
+Recommended demo:
+1. User asks for AI.
+2. shift.AI does not immediately recommend.
+3. It asks intelligent questions.
+4. User uploads current workflow/document.
+5. shift.AI identifies root cause.
+6. It decides whether AI is required.
+7. It generates the solution.
+8. Red team attacks it.
+9. The architecture is improved.
+10. Final blueprint/report appears.
+
+The judge should immediately understand why shift.AI is different.
+
+======================================================================
+28. MVP FEATURE PRIORITY
+======================================================================
+
+P0 — MUST WORK FOR HACKATHON
+- polished landing page,
+- create assessment/project,
+- conversational requirement input,
+- dynamic discovery questions,
+- context/facts extraction,
+- current-state understanding,
+- AI-need decision,
+- root-cause analysis,
+- solution recommendation,
+- custom AI architecture when needed,
+- no-AI recommendation when justified,
+- file upload,
+- document context extraction,
+- red-team stage,
+- refinement stage,
+- final report,
+- frontend/backend separation,
+- .env configuration,
+- error/loading states,
+- professional responsive UI.
+
+P1 — STRONGLY DESIRED
+- readiness score visualization,
+- context progress,
+- project history,
+- architecture diagram,
+- downloadable report,
+- multiple uploaded files,
+- comparison of alternatives,
+- saved assessment state.
+
+P2 — FUTURE
+- team collaboration,
+- organization workspaces,
+- auth/roles,
+- integrations with external business systems,
+- connector marketplace,
+- automatic process mining,
+- cost simulator,
+- implementation project tracker,
+- vendor comparison,
+- continuous monitoring after deployment.
+
+Do not sacrifice P0 functionality to implement P2 features.
+
+======================================================================
+29. DEMO SCENARIO TO KEEP READY
+======================================================================
+
+Use a scenario that proves the main idea.
+
+Example:
+Hospital owner:
+“I want an AI receptionist because patients wait too long.”
+
+The system asks about:
+- exact wait location,
+- current software,
+- patient volume,
+- scheduling,
+- manual work,
+- available data.
+
+Uploaded workflow shows:
+Reception staff copy appointment information from one system to another.
+
+shift.AI finds:
+The biggest bottleneck is duplicate entry and lack of integration.
+
+Decision:
+Do not begin with a fully autonomous AI receptionist.
+
+Recommendation:
+- integrate systems,
+- centralize patient scheduling,
+- automate confirmations,
+- create queue visibility,
+- optionally add AI for FAQ/intake only.
+
+Red team:
+- patient privacy,
+- hallucination risk,
+- booking conflicts,
+- emergency intent,
+- API failure.
+
+Refined design:
+- AI handles low-risk FAQ/intake,
+- scheduling system remains source of truth,
+- emergency language escalates to human,
+- no autonomous clinical advice,
+- full audit log,
+- fallback to staff.
+
+This demo proves the product's differentiation.
+
+======================================================================
+30. IMPORTANT PRODUCT LANGUAGE
+======================================================================
+
+Good phrases for explaining shift.AI:
+
+“Understand first. Automate second.”
+
+“shift.AI determines whether AI is the solution before designing the AI solution.”
+
+“We don't start with the model. We start with the workflow.”
+
+“Sometimes the best AI recommendation is: don't use AI.”
+
+“shift.AI turns a business requirement into a validated, red-teamed implementation blueprint.”
+
+“From vague AI request to evidence-based architecture.”
+
+Do not overuse marketing language inside the product itself.
+
+======================================================================
+31. DEVELOPMENT QUALITY REQUIREMENTS
+======================================================================
+
+Code should be:
+- modular,
+- readable,
+- typed where possible,
+- documented where logic is non-obvious,
+- organized by feature/domain,
+- free from hard-coded secrets,
+- free from huge duplicated components,
+- free from giant route/controller functions,
+- testable.
+
+Frontend:
+- reuse components,
+- proper form validation,
+- loading skeletons/spinners,
+- disabled states during requests,
+- clear error feedback,
+- no layout overflow,
+- accessible labels/buttons,
+- sensible empty states.
+
+Backend:
+- request validation,
+- structured exceptions,
+- clean logging,
+- provider timeouts,
+- schema validation,
+- service boundaries,
+- modular prompts.
+
+======================================================================
+32. TESTING CHECKLIST
+======================================================================
+
+Before calling the project complete, test:
+
+GENERAL
+[ ] Fresh clone works after adding env keys
+[ ] Frontend starts
+[ ] Backend starts
+[ ] Health endpoint works
+[ ] No secret is committed
+
+DISCOVERY
+[ ] User can submit first requirement
+[ ] System asks relevant follow-up
+[ ] Different user answers produce different next questions
+[ ] Facts are preserved
+
+FILES
+[ ] PDF upload works
+[ ] Text upload works
+[ ] Unsupported type handled
+[ ] Failed parse handled
+[ ] Extracted facts affect later analysis
+
+ANALYSIS
+[ ] Root cause is generated
+[ ] Current system is summarized
+[ ] AI decision is generated
+[ ] “No AI” outcome is possible
+[ ] “AI justified” outcome is possible
+[ ] Hybrid recommendation is possible
+
+RED TEAM
+[ ] Initial recommendation generated
+[ ] Critique generated separately
+[ ] Refinement consumes critique
+[ ] Final recommendation visibly changes when critique finds a serious issue
+
+REPORT
+[ ] Final report is readable
+[ ] Contains reasoning
+[ ] Contains implementation steps
+[ ] Contains risks
+[ ] Contains success metrics
+
+UI
+[ ] Responsive
+[ ] No text overflow
+[ ] No broken cards
+[ ] Loading states
+[ ] Error states
+[ ] Empty states
+[ ] Professional branding
+
+======================================================================
+33. WHAT NOT TO BUILD
+======================================================================
+
+Do NOT accidentally turn shift.AI into:
+
+- a generic ChatGPT clone,
+- a generic AI tool directory,
+- a questionnaire that always ends in “use AI,”
+- a prompt generator,
+- a static consulting report generator,
+- a single huge LLM prompt,
+- a hospital-only product,
+- an architecture diagram generator without discovery,
+- a fake multi-agent demo where every stage repeats the same answer,
+- an autonomous high-risk decision system,
+- a flashy UI with weak logic.
+
+======================================================================
+34. WHAT MAKES THE PROJECT WIN-WORTHY
+======================================================================
+
+The strongest hackathon story is not:
+“We built another AI assistant.”
+
+It is:
+“Everyone is racing to add AI. We built a system that first asks whether AI should be added at all.”
+
+shift.AI addresses a real business problem:
+Companies can spend significant time and money implementing the wrong AI solution because they begin with the technology instead of understanding workflow, readiness, and root cause.
+
+The innovation is the decision process:
+Request
+ -> Discovery
+ -> Evidence
+ -> Current-state model
+ -> Root-cause analysis
+ -> AI-need decision
+ -> Candidate solution
+ -> Red-team attack
+ -> Refined architecture
+ -> Practical implementation blueprint
+
+This is the core narrative in the application, technical architecture, demo, and pitch.
+
+======================================================================
+35. EXPECTED END-TO-END APPLICATION STATE
+======================================================================
+
+When implementation is complete, a judge should be able to:
+
+1. Open shift.AI.
+2. Understand the concept immediately.
+3. Enter a vague AI requirement.
+4. See that shift.AI asks intelligent follow-up questions instead of blindly answering.
+5. Answer the questions.
+6. Upload a current workflow or requirement document.
+7. See that the document changes the system's understanding.
+8. View the reconstructed current state.
+9. View root causes/bottlenecks.
+10. See a clear “Do you actually need AI?” decision.
+11. Receive either a non-AI, process, automation, existing-software, AI, or hybrid recommendation.
+12. View the proposed solution architecture.
+13. View a red-team critique.
+14. See how the solution changed after that critique.
+15. Read the final implementation blueprint.
+16. Understand business impact and next steps.
+
+If all 16 are demonstrated cleanly, the product concept is being implemented correctly.
+
+======================================================================
+36. IMPLEMENTATION ORDER FOR AN AI CODING ASSISTANT
+======================================================================
+
+When asked to build this project from scratch, use this order:
+
+PHASE 1 — FOUNDATION
+- create frontend/
+- create backend/
+- base routing,
+- health check,
+- environment config,
+- shared types/schemas,
+- UI shell,
+- project/session model.
+
+PHASE 2 — DISCOVERY
+- requirement input,
+- conversation storage,
+- discovery agent,
+- structured fact extraction,
+- dynamic follow-up questions,
+- context panel.
+
+PHASE 3 — DOCUMENTS
+- uploads,
+- extraction,
+- structured document facts,
+- context merging.
+
+PHASE 4 — ANALYSIS
+- current-state model,
+- workflow analysis,
+- root causes,
+- AI readiness,
+- decision classification.
+
+PHASE 5 — SOLUTION
+- architecture agent,
+- alternatives,
+- implementation plan.
+
+PHASE 6 — RED TEAM
+- critique,
+- severity,
+- refinement loop.
+
+PHASE 7 — REPORT
+- final report,
+- architecture view,
+- next steps.
+
+PHASE 8 — POLISH
+- loading/error states,
+- responsive design,
+- test scenarios,
+- README,
+- .env.example,
+- deployment configuration.
+
+At every phase keep previous features working.
+
+======================================================================
+37. README / SETUP EXPECTATION
+======================================================================
+
+Root README should include:
+
+- what shift.AI is,
+- why it is different,
+- architecture diagram,
+- main features,
+- project structure,
+- prerequisites,
+- frontend setup,
+- backend setup,
+- env setup,
+- Google/API setup,
+- run commands,
+- supported file types,
+- demo flow,
+- troubleshooting.
+
+Do not require a developer to guess configuration.
+
+======================================================================
+38. ENVIRONMENT / GOOGLE API SETUP PHILOSOPHY
+======================================================================
+
+External API setup should be prepared in code now, while actual keys can be inserted later.
+
+Meaning:
+- create provider/service modules,
+- create env variable names,
+- create .env.example,
+- use configuration loader,
+- validate missing required credentials,
+- add clear setup comments/README,
+- do NOT place fake keys,
+- do NOT hardcode personal project IDs,
+- do NOT require code changes after keys are provided.
+
+If a Google API is optional, the rest of shift.AI should still load and clearly indicate that the optional integration is not configured.
+
+======================================================================
+39. ARCHITECTURAL PRINCIPLE: STATE > CHAT HISTORY
+======================================================================
+
+Do not rely only on sending the complete raw chat history back to the model.
+
+Maintain a structured project state.
+
+Example:
+
+project_context = {
+  "organization": {...},
+  "goal": {...},
+  "current_workflow": [...],
+  "tools": [...],
+  "data": [...],
+  "pain_points": [...],
+  "constraints": [...],
+  "facts": [...],
+  "assumptions": [...],
+  "unknowns": [...],
+  "documents": [...],
+  "readiness": {...}
+}
+
+Every discovery turn should update this state.
+
+This makes the system:
+- more reliable,
+- easier to debug,
+- cheaper to scale,
+- easier to show in UI,
+- easier to red-team,
+- easier to generate reports from.
+
+======================================================================
+40. ARCHITECTURAL PRINCIPLE: EVIDENCE > ASSERTION
+======================================================================
+
+For important conclusions, store supporting evidence.
+
+Example:
+
+root_cause:
+“Duplicate manual appointment entry”
+
+evidence:
+- user said reception manually copies bookings,
+- uploaded SOP section says booking is re-entered,
+- average processing time supplied by user is high.
+
+Then recommendation:
+“Integrate scheduling systems before introducing generative AI.”
+
+This creates explainability.
+
+======================================================================
+41. ARCHITECTURAL PRINCIPLE: SAFE HUMAN CONTROL
+======================================================================
+
+When a proposed solution could take consequential actions:
+- keep a human approval point,
+- define permissions,
+- log actions,
+- define rollback/fallback,
+- keep existing authoritative systems as source of truth when appropriate.
+
+Do not recommend fully autonomous AI simply because it sounds innovative.
+
+======================================================================
+42. BUSINESS VALUE
+======================================================================
+
+shift.AI creates value in four stages:
+
+BEFORE AN AI PROJECT
+- prevents unnecessary builds,
+- identifies readiness gaps,
+- improves requirement clarity.
+
+DURING SOLUTION DESIGN
+- creates architecture,
+- identifies integrations,
+- reduces ambiguity,
+- surfaces risk.
+
+BEFORE IMPLEMENTATION
+- red-teams assumptions,
+- prioritizes MVP,
+- gives technical teams a blueprint.
+
+AFTERWARD / FUTURE PRODUCT
+- can track whether assumptions changed,
+- can reassess readiness,
+- can compare actual results to expected KPIs,
+- can recommend next iteration.
+
+Potential customers:
+- SMBs without AI expertise,
+- enterprises evaluating AI initiatives,
+- AI consultancies,
+- development agencies,
+- digital transformation teams,
+- innovation departments.
+
+======================================================================
+43. FINAL SUMMARY FOR THE AI READING THIS FILE
+======================================================================
+
+If you remember only one thing, remember this:
+
+shift.AI is NOT an AI that immediately solves the user's stated request.
+
+It first learns:
+- what the organization does,
+- what the user wants,
+- how the current process works,
+- which people and systems are involved,
+- what data exists,
+- where the actual bottleneck is,
+- what constraints and risks exist,
+- and whether AI is justified.
+
+Then it decides the minimum effective solution.
+
+If AI is needed, it designs the AI solution.
+If AI is not needed, it says so and recommends a better alternative.
+Then it red-teams its own recommendation and produces a refined, practical implementation blueprint.
+
+The full experience must feel like a competent AI solution architect and business/process consultant.
+
+The hackathon story should be immediately understandable:
+
+“Before a company spends money building AI, shift.AI determines what problem actually needs to be solved, whether AI is the right tool, and how to implement the safest, simplest, highest-value solution.”
+
+END OF MASTER CONTEXT

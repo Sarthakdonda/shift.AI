@@ -2,19 +2,24 @@
 
 **Clarity before complexity.** An evidence-led business strategy workspace that diagnoses the actual problem before recommending AI, automation, existing software, process improvement, or a hybrid solution.
 
-Built from the supplied shift.AI SRS v1.0, with Google sign-in added. The interface follows the supplied palette: orange `#FF7A00`, warm cream `#FFF4E6`, slate `#E2E8F0`, and deep navy `#0B1320`.
+Built from the supplied SRS, organizer requirements and product explanation, with email accounts and optional Google sign-in. The interface follows the supplied palette: orange `#FF7A00`, warm cream `#FFF4E6`, slate `#E2E8F0`, and deep navy `#0B1320`.
 
 ## What works
 
 - Create, search, filter, resume, and delete persistent projects.
 - Adaptive discovery with ten completeness categories, one question at a time, and a critical-information gate.
-- PDF, DOCX, TXT, CSV, and XLSX extraction, summaries, facts, source metadata, and project-scoped retrieval.
+- PDF, DOCX, PPTX, TXT, CSV, and XLSX extraction, summaries, facts, source metadata, and project-scoped retrieval.
 - Workflow reconstruction, bottlenecks, root causes, and all six AI necessity classifications, including practical no-AI outcomes.
 - Solution architecture with AI/non-AI components, integrations, human review, roadmap, and success metrics.
 - Independent Red Team prompts with up to **three review cycles**; previous findings and unresolved concerns remain visible.
 - Business value, explicitly labeled assumptions, risk assessment, and five feasibility dimensions.
 - Structured blueprints with copy, Markdown download, and browser print / Save as PDF.
-- Google Identity Services sign-in, server-side token verification, signed HttpOnly sessions, and account-level project isolation.
+- Email signup/login, optional Google Identity Services, signed HttpOnly sessions, account isolation and workspace roles.
+- Seven editable deliverables: business, architecture, process, UX, database/API, planning and transformation.
+- Version history, collaboration, approvals, governance, readiness/outcomes and Office/BPMN exports.
+- Twenty-language selection, installable responsive web and a Microsoft Planner snapshot connector.
+
+See [organizer coverage and limitations](docs/HACKATHON_COVERAGE.md) before claiming full enterprise compliance.
 - Responsive desktop/mobile layout, keyboard navigation, accessible dialogs, reduced-motion support, loading states, and actionable errors.
 
 ## Requirements
@@ -181,7 +186,7 @@ npm.cmd run typecheck
 npm.cmd run lint
 npm.cmd run build
 
-# Browser tests (stop anything on ports 3000/8000 first)
+# Browser tests use isolated ports 3011/8011; keep normal servers running
 npx.cmd playwright install chromium
 npm.cmd run test:e2e
 ```
@@ -194,6 +199,8 @@ Optional real Atlas persistence verification (creates and deletes only its own t
 cd backend
 .venv\Scripts\python.exe -m tests.live_atlas_smoke
 ```
+
+The local `python run.py` launcher explicitly loads `backend/.env` over unrelated inherited application variables. Direct production Uvicorn startup retains ordinary environment-variable precedence.
 
 See [verification notes](docs/VERIFICATION.md) for the checks actually run and external credentials still needed for live verification.
 
@@ -214,6 +221,23 @@ Exact JavaScript dependencies are pinned in `frontend/package-lock.json`; the te
 
 Model availability and quotas depend on your Google account. Change `GEMINI_MODEL` in the environment to another compatible text model when needed; no source edits are required.
 
+## Choosing a model and reasoning effort
+
+The conversation composer has a picker showing the text models your configured keys can actually use, read from the provider at runtime and cached for ten minutes. `GEMINI_MODEL` is the default selection. Choosing a model or effort saves it on the project, so it applies to discovery, analysis, Red Team review, and deliverables, not only the next reply.
+
+Effort controls how long the model reasons before answering:
+
+| Effort | Gemini 3 models | Gemini 2.5 models |
+| --- | --- | --- |
+| Instant | thinking level `MINIMAL` | thinking budget `0` |
+| Fast | `LOW` | `1024` |
+| Balanced | `MEDIUM` | `4096` |
+| Thorough | `HIGH` | `16384` |
+
+Lower effort answers noticeably faster. Measured on `gemini-2.5-flash` for one discovery turn: Instant 5.8 s versus Balanced 15.2 s. Models older than 2.5 receive no thinking option, and a model that rejects the option is retried once without it.
+
+`GEMINI_EFFORT` sets the default effort for projects that have not chosen one. An explicit `GEMINI_THINKING_LEVEL` still overrides effort for Gemini 3 models, and a per-project choice replaces it. Supported values are `minimal`, `low`, `medium`, and `high`, subject to the selected model's capabilities. Restart the backend after changing these settings. Structured validation, key fallback, human-review guidance, and the three-cycle Red Team limit still apply. See [Google's thinking configuration documentation](https://ai.google.dev/gemini-api/docs/generate-content/thinking).
+
 ## Multiple Gemini keys and automatic fallback
 
 In **`backend/.env`**, keep your primary key and add comma-separated backup keys:
@@ -225,7 +249,9 @@ GEMINI_API_KEYS=your_second_key,your_third_key,your_fourth_key
 
 Restart the backend with `python run.py` after changing keys. Both `AIza...` and newer `AQ...` credentials are accepted as supplied; the app does not reject keys based on their prefix. Blank and duplicate entries are ignored, and the primary key is tried first.
 
-Generation, structured JSON repair, and embeddings use the same key pool. On quota errors (429), authentication/access errors (401/403 or an invalid-key 400), transient server errors, and network timeouts, the service tries the next eligible key. Failed credentials are temporarily skipped: quota errors for at least 60 seconds (longer when Google's RetryInfo or numeric Retry-After requires it), authentication failures for five minutes, and transient failures for five seconds. The cooldown state is shared across requests in the current backend process; restarting resets it. Invalid requests and missing models return a configuration error rather than rotating through every key.
+Generation, structured JSON repair, and embeddings use the same key pool. On quota errors (429), authentication/access errors (401/403 or an invalid-key 400), transient server errors, and network timeouts, the service tries the next eligible key. Failed credentials are temporarily skipped: quota errors for at least 60 seconds (longer when Google's RetryInfo or numeric Retry-After requires it), authentication failures for five minutes, and transient failures for five seconds. The cooldown state is shared across requests in the current backend process; restarting resets it. A missing-model error (404) also moves to the next key, because keys from different Google projects can have different model access; that key is not placed on cooldown, and when no key serves the model the app asks you to choose another one. A malformed request returns a configuration error rather than rotating through every key.
+
+**Quota is applied per Google project and per model.** A key that is exhausted for one model may still have room on another, so switching model in the composer can restore service.
 
 Each generation has a maximum of four provider calls, including JSON repair, with a 45-second timeout per call. Any number of keys may be configured; at most four are attempted per request to keep requests bounded. If every key is unavailable, the app returns a safe retry message and preserves saved project data. Automatic fallback retries the current provider operation; it cannot guarantee uninterrupted service or automatically resume an analysis after all attempts fail.
 

@@ -20,9 +20,9 @@ def main():
     if args.check:
         command = [str(python), '-c', "from app.main import app; print('Backend dependencies OK; virtual environment selected correctly.')"]
     else:
-        command = [str(python), '-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', str(args.port)]
-        if not args.no_reload:
-            command += ['--reload', '--reload-dir', str(backend / 'app')]
+        command = [str(python), '-m', 'app.local_server', '--port', str(args.port)]
+        if args.no_reload:
+            command += ['--no-reload']
         print(f'Starting backend at http://localhost:{args.port} (Ctrl+C to stop)', flush=True)
     try:
         return subprocess.call(command, cwd=backend)

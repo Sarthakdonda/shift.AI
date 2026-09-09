@@ -1,5 +1,6 @@
 from pathlib import Path
 from functools import lru_cache
+from typing import Literal
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -8,6 +9,8 @@ class Settings(BaseSettings):
     gemini_api_key: str = ''
     gemini_api_keys: str = ''
     gemini_model: str = 'gemini-2.5-flash'
+    gemini_thinking_level: Literal['minimal', 'low', 'medium', 'high'] | None = None
+    gemini_effort: Literal['instant', 'low', 'medium', 'high'] = 'low'
     mongodb_uri: str = ''
     mongodb_database: str = 'shift_ai'
     cors_origins: str = 'http://localhost:3000,http://localhost:3001'

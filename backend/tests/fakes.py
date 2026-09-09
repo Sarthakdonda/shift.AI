@@ -14,6 +14,10 @@ class FakeGemini:
 
     def generate_structured(self, instruction, context, schema):
         self.calls.append(schema.__name__)
+        if schema.__name__ == 'Deliverable':
+            return schema.model_validate(deliverable_fixture())
+        if schema.__name__ == 'TranslationOutput':
+            return schema.model_validate({'translations':['Translated: '+text for text in context]})
         finding = {'category': 'INTEGRATION', 'severity': 'HIGH', 'issue': 'Accounting API access is not confirmed', 'reason': 'The supplied workflow names an accounting tool but no available API.', 'mitigation': 'Validate API access before implementation; use a reviewed CSV import as fallback.', 'requires_revision': self.always_revise}
         evidence = {'title': 'Duplicate entry', 'description': 'Staff retype the same invoice data.', 'evidence': ['User message: invoices copied from email to spreadsheet.'], 'confidence': 0.9}
         dimension = {'score': 75, 'reason': 'Validate access in a small pilot.'}
@@ -29,3 +33,23 @@ class FakeGemini:
             'Conclusion': {'executive_summary': 'The bottleneck is duplicate entry, not reasoning complexity.', 'recommendation': 'Pilot deterministic imports with staff review.', 'next_steps': ['Confirm integration access', 'Measure the current workload']},
         }
         return schema.model_validate(values[schema.__name__])
+
+
+def deliverable_fixture():
+    """Schema-rich fixture for renderer/export tests, not evidence of model quality."""
+    nodes=[{'id':'receive','label':'Receive invoice','lane':'Operations','kind':'start'},
+           {'id':'review','label':'Approve invoice?','lane':'Reviewer','kind':'decision'},
+           {'id':'record','label':'Record approved invoice','lane':'Operations','kind':'end'}]
+    edges=[{'source':'receive','target':'review','label':'Validate'}, {'source':'review','target':'record','label':'Approved'}]
+    return {'title':'Invoice transformation design','summary':'Replace duplicate entry with reviewed structured imports.',
+        'sections':[{'title':'Current and future state','narrative':'Current: manual retyping. Future: validated import with human review.',
+                     'items':['Measure entry time before estimating savings.'],
+                     'tables':[{'title':'Estimate assumptions','columns':['Work item','Days'], 'rows':[['Pilot validation','5 (assumption)']]}]}],
+        'diagrams':[{'title':kind.replace('_',' ').title(),'kind':kind,'nodes':nodes,'edges':edges} for kind in ['architecture','data_flow','bpmn','swimlane','decision_tree','er']],
+        'screens':[{'name':name,'persona':'Operations reviewer','purpose':'Review invoice records.',
+                    'controls':[{'label':'Review queue','kind':'table','detail':'Invoice, amount, status'}, {'label':'Approve','kind':'button','detail':'Confirm a validated import'}]} for name in ['Overview','Review invoice','Import history']],
+        'code_assets':[{'filename':'schema.sql','language':'sql','content':'CREATE TABLE invoice (id INTEGER PRIMARY KEY, status VARCHAR(20) NOT NULL);'},
+                       {'filename':'openapi.yaml','language':'yaml','content':'openapi: 3.0.3\ninfo:\n  title: Invoice pilot\n  version: 1.0.0\npaths:\n  /invoices:\n    get:\n      responses:\n        "200":\n          description: Invoice list\n'}],
+        'assessments':[{'dimension':d,'rating':'unknown','reason':'No validated baseline supplied.','evidence':['Source message describes manual entry, without a measured baseline.']} for d in ['digital_maturity','ai_readiness','implementation_readiness','solution_quality','automation_opportunity']],
+        'assumptions':['API access and five-day pilot estimate require validation.'],
+        'validation_steps':['Reconcile imports against source invoices and test duplicate rejection.']}

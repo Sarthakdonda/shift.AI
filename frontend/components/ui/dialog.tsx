@@ -7,18 +7,32 @@ export function Modal({
   title,
   description,
   children,
+  icon,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
   description: string;
   children: React.ReactNode;
+  icon?: React.ReactNode;
 }) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="modal-overlay" />
-        <Dialog.Content className="modal">
+        <Dialog.Content
+          className="modal"
+          onOpenAutoFocus={(event) => {
+            const cancel = document.querySelector<HTMLElement>(
+              ".modal [data-dialog-cancel]",
+            );
+            if (cancel) {
+              event.preventDefault();
+              cancel.focus();
+            }
+          }}
+        >
+          {icon && <span className="dialog-icon">{icon}</span>}
           <Dialog.Title className="modal-title">{title}</Dialog.Title>
           <Dialog.Description className="muted">
             {description}

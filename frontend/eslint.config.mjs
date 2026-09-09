@@ -5,5 +5,5 @@ export default defineConfig([
   ...nextVitals,
   ...nextTs,
   { rules: { "react-hooks/set-state-in-effect": "off" } },
-  globalIgnores([".next/**", "next-env.d.ts"]),
+  globalIgnores([".next/**", ".next-e2e/**", "next-env.d.ts"]),
 ]);

@@ -1,4 +1,6 @@
 "use client";
+
+import { T } from "@/components/locale";
 import Link from "next/link";
 import { use, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -22,7 +24,7 @@ import {
 } from "lucide-react";
 import { Shell } from "@/components/layout/shell";
 import { Button } from "@/components/ui/button";
-import { Modal } from "@/components/ui/dialog";
+import { ConfirmDialog, useToast } from "@/components/ui/feedback";
 import { Empty, ErrorBox, Loading } from "@/components/ui/states";
 import { useSession } from "@/components/providers";
 import { api, post, humanize, date } from "@/lib/api";
@@ -32,7 +34,9 @@ import type {
   Document,
   Analysis,
   Blueprint,
+  ModelCatalog,
 } from "@/lib/types";
+import { ModelPicker } from "@/components/model-picker";
 import {
   DiagnosisReport,
   SolutionReport,
@@ -72,8 +76,13 @@ export default function Workspace({
   const [action, setAction] = useState("");
   const [message, setMessage] = useState("");
   const [deleting, setDeleting] = useState<string | null>(null);
-  const [notice, setNotice] = useState("");
+  const setNotice = useToast();
+  const [rerunning, setRerunning] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [catalog, setCatalog] = useState<ModelCatalog | null>(null);
+  const [choice, setChoice] = useState<{ model: string; effort: string } | null>(
+    null,
+  );
   const bottom = useRef<HTMLDivElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const load = useCallback(async () => {
@@ -100,6 +109,31 @@ export default function Workspace({
     void load();
   }, [load]);
   useEffect(() => {
+    // The catalog reflects the models the configured keys can actually use.
+    api<ModelCatalog>("/models")
+      .then(setCatalog)
+      .catch(() => setCatalog(null));
+  }, []);
+  const selection = choice ?? {
+    model: project?.model || catalog?.default_model || "",
+    effort: project?.effort || catalog?.default_effort || "low",
+  };
+  async function chooseModel(next: { model: string; effort: string }) {
+    const previous = selection;
+    setChoice(next);
+    try {
+      await post(`/projects/${id}/model`, next);
+      setNotice(
+        next.model === previous.model
+          ? `Effort set to ${next.effort}.`
+          : `Model set to ${next.model}.`,
+      );
+    } catch (e) {
+      setChoice(previous);
+      setError((e as Error).message);
+    }
+  }
+  useEffect(() => {
     if (!project?.busy) return;
     const timer = setInterval(() => void load(), 2500);
     return () => clearInterval(timer);
@@ -107,11 +141,6 @@ export default function Workspace({
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [messages.length]);
-  useEffect(() => {
-    if (!notice) return;
-    const t = setTimeout(() => setNotice(""), 4000);
-    return () => clearTimeout(t);
-  }, [notice]);
   const busy = !!action || !!project?.busy;
   async function perform(name: string, fn: () => Promise<unknown>) {
     setAction(name);
@@ -131,8 +160,8 @@ export default function Workspace({
       setError(`Files must be ${health?.max_upload_mb || 15} MB or smaller.`);
       return;
     }
-    if (!/\.(pdf|docx|txt|csv|xlsx)$/i.test(file.name)) {
-      setError("Choose a PDF, DOCX, TXT, CSV, or XLSX file.");
+    if (!/\.(pdf|docx|pptx|txt|csv|xlsx)$/i.test(file.name)) {
+      setError("Choose a PDF, DOCX, PPTX, TXT, CSV, or XLSX file.");
       return;
     }
     const body = new FormData();
@@ -142,8 +171,10 @@ export default function Workspace({
     );
     if (fileInput.current) fileInput.current.value = "";
   }
-  const startAnalysis = () =>
+  const runAnalysis = () =>
     perform("Starting analysis", () => post(`/projects/${id}/analysis/run`));
+  const startAnalysis = () =>
+    analysis || blueprint ? setRerunning(true) : runAnalysis();
   const isKnownTab =
     [
       "discovery",
@@ -160,7 +191,7 @@ export default function Workspace({
         ref={fileInput}
         type="file"
         hidden
-        accept=".pdf,.docx,.txt,.csv,.xlsx"
+        accept=".pdf,.docx,.pptx,.txt,.csv,.xlsx"
         onChange={(e) => void upload(e.target.files?.[0])}
       />
       {loading ? (
@@ -169,7 +200,8 @@ export default function Workspace({
         <>
           <ErrorBox message={error || "Project not found."} />
           <Link className="text-button" href="/dashboard">
-            Back to projects <ArrowRight size={15} />
+            <T text={"Back to projects "} />
+            <ArrowRight size={15} />
           </Link>
         </>
       ) : !isKnownTab ? (
@@ -184,7 +216,7 @@ export default function Workspace({
             <div>
               <div className="project-meta">
                 <span className="eyebrow">
-                  {project.industry || "BUSINESS STRATEGY"}
+                  {project.industry || "Business strategy"}
                 </span>
                 <span
                   className={`badge ${project.status === "BLUEPRINT_READY" ? "badge-green" : "badge-orange"}`}
@@ -213,7 +245,8 @@ export default function Workspace({
                   className="button button-secondary button-sm"
                   href={`/project/${id}/blueprint`}
                 >
-                  View blueprint <ArrowUpRight size={15} />
+                  <T text={"View blueprint "} />
+                  <ArrowUpRight size={15} />
                 </Link>
               )}
               <button
@@ -255,20 +288,20 @@ export default function Workspace({
               <FileText size={16} /> {warning}
             </div>
           ))}
-          {notice && (
-            <div className="notice" role="status">
-              <CircleCheck size={17} />
-              {notice}
-            </div>
-          )}
           {project.busy && (
             <div className="processing-banner" role="status">
               <LoaderCircle size={21} className="spin" />
               <div>
-                <strong>{humanize(project.status)} in progress</strong>
+                <strong>
+                  {humanize(project.status)}
+                  <T text={" in progress"} />
+                </strong>
                 <p>
-                  Your work is saved. You can explore the workspace while we
-                  connect the dots.
+                  <T
+                    text={
+                      "Your work is saved. You can explore the workspace while we connect the dots."
+                    }
+                  />
                 </p>
               </div>
             </div>
@@ -282,12 +315,17 @@ export default function Workspace({
                       <Sparkles size={19} />
                     </span>
                     <div>
-                      <h2>Let’s understand the challenge</h2>
-                      <small>Discovery · One useful question at a time</small>
+                      <h2>
+                        <T text={"Let’s understand the challenge"} />
+                      </h2>
+                      <small>
+                        <T text={"Discovery · One useful question at a time"} />
+                      </small>
                     </div>
                   </div>
                   <span className="badge">
-                    <span className="tiny-orange" /> Your thinking partner
+                    <span className="tiny-orange" />
+                    <T text={" Your thinking partner"} />
                   </span>
                 </header>
                 <div className="messages">
@@ -317,10 +355,15 @@ export default function Workspace({
                       <span className="assistant-avatar">
                         <Sparkles size={19} />
                       </span>
-                      <h3>Every good solution starts here.</h3>
+                      <h3>
+                        <T text={"Every good solution starts here."} />
+                      </h3>
                       <p>
-                        I’ll help uncover the problem behind your request, using
-                        your answers and any documents you add.
+                        <T
+                          text={
+                            "I’ll help uncover the problem behind your request, using your answers and any documents you add."
+                          }
+                        />
                       </p>
                       <Button
                         disabled={busy}
@@ -347,10 +390,19 @@ export default function Workspace({
                   <div className="ready-banner">
                     <CircleCheck size={21} />
                     <div>
-                      <strong>We have enough context to move forward.</strong>
+                      <strong>
+                        <T
+                          text={
+                            "We have enough context. You can run analysis now."
+                          }
+                        />
+                      </strong>
                       <span>
-                        Ready to diagnose the problem and explore the right
-                        solution.
+                        <T
+                          text={
+                            "Next: diagnose the root problem, weigh the options, and review the recommendation."
+                          }
+                        />
                       </span>
                     </div>
                     <Button
@@ -358,7 +410,8 @@ export default function Workspace({
                       disabled={busy}
                       onClick={() => void startAnalysis()}
                     >
-                      Run analysis <ArrowRight size={15} />
+                      <T text={"Run analysis "} />
+                      <ArrowRight size={15} />
                     </Button>
                   </div>
                 )}
@@ -412,9 +465,24 @@ export default function Workspace({
                       disabled={busy}
                       onClick={() => fileInput.current?.click()}
                     >
-                      <Paperclip size={17} /> Add context
+                      <Paperclip size={17} />
+                      <T text={" Add context"} />
                     </button>
-                    <span>Enter to send · Shift + Enter for a new line</span>
+                    {catalog && (
+                      <ModelPicker
+                        models={catalog.models}
+                        efforts={catalog.efforts}
+                        model={selection.model}
+                        effort={selection.effort}
+                        disabled={busy}
+                        onChange={(next) => void chooseModel(next)}
+                      />
+                    )}
+                    <span>
+                      <T
+                        text={"Enter to send · Shift + Enter for a new line"}
+                      />
+                    </span>
                     <Button
                       type="submit"
                       size="sm"
@@ -426,8 +494,11 @@ export default function Workspace({
                   </div>
                 </form>
                 <div className="chat-footer">
-                  Your context stays with this project. Recommendations follow
-                  the evidence.
+                  <T
+                    text={
+                      "Your context stays with this project. Recommendations follow the evidence."
+                    }
+                  />
                 </div>
                 {messages.at(-1)?.role === "user" &&
                   messages.length > 1 &&
@@ -440,21 +511,25 @@ export default function Workspace({
                         )
                       }
                     >
-                      <RefreshCw size={14} /> Retry response to your saved
-                      answer
+                      <RefreshCw size={14} />
+                      <T text={" Retry response to your saved answer"} />
                     </button>
                   )}
               </section>
               <aside className="discovery-sidebar">
                 <section className="panel discovery-progress">
                   <div className="row-between">
-                    <h3>Building the picture</h3>
+                    <h3>
+                      <T text={"Building the picture"} />
+                    </h3>
                     <span className="progress-total">
                       {project.discovery_scores.overall || 0}
                       <small>%</small>
                     </span>
                   </div>
-                  <p>Context gathered, not certainty.</p>
+                  <p>
+                    <T text={"Context gathered, not certainty."} />
+                  </p>
                   {[
                     "business",
                     "problem",
@@ -483,20 +558,27 @@ export default function Workspace({
                   ))}
                 </section>
                 <section className="warm-panel">
-                  <span className="eyebrow">WHY WE ASK</span>
+                  <span className="eyebrow">
+                    <T text={"Why we ask"} />
+                  </span>
                   <h3>
-                    Understand first.
+                    <T text={"Understand first."} />
                     <br />
-                    Recommend second.
+                    <T text={"Recommend second."} />
                   </h3>
                   <p>
-                    The right solution might be AI, simple automation, or a
-                    better way of working. Your context tells us which.
+                    <T
+                      text={
+                        "The right solution might be AI, simple automation, or a better way of working. Your context tells us which."
+                      }
+                    />
                   </p>
                 </section>
                 {!!project.discovery?.critical_missing.length && (
                   <section className="panel context-gaps">
-                    <h3>Still to understand</h3>
+                    <h3>
+                      <T text={"Still to understand"} />
+                    </h3>
                     <BulletList items={project.discovery.critical_missing} />
                   </section>
                 )}
@@ -506,8 +588,13 @@ export default function Workspace({
                 >
                   <FileText size={19} />
                   <div>
-                    <strong>{documents.length} supporting documents</strong>
-                    <span>Add evidence to the conversation</span>
+                    <strong>
+                      {documents.length}
+                      <T text={" supporting documents"} />
+                    </strong>
+                    <span>
+                      <T text={"Add evidence to the conversation"} />
+                    </span>
                   </div>
                   <ArrowUpRight size={17} />
                 </Link>
@@ -532,29 +619,42 @@ export default function Workspace({
                 <span className="upload-icon">
                   <Upload size={27} />
                 </span>
-                <h2>Bring your business into focus.</h2>
-                <p>Drop a document here, or choose a file to add context.</p>
+                <h2>
+                  <T text={"Bring your business into focus."} />
+                </h2>
+                <p>
+                  <T
+                    text={
+                      "Drop a document here, or choose a file to add context."
+                    }
+                  />
+                </p>
                 <Button
                   variant="secondary"
                   disabled={busy}
                   onClick={() => fileInput.current?.click()}
                 >
-                  <PlusFile /> Choose a file
+                  <PlusFile />
+                  <T text={" Choose a file"} />
                 </Button>
                 <small>
-                  PDF, DOCX, TXT, CSV, XLSX · Up to{" "}
-                  {health?.max_upload_mb || 15} MB · 20 files per project
+                  <T text={"PDF, DOCX, PPTX, TXT, CSV, XLSX · Up to"} />{" "}
+                  {health?.max_upload_mb || 15}
+                  <T text={" MB · 20 files per project"} />
                 </small>
               </div>
               <div className="section-toolbar">
                 <div>
                   <h2>
-                    Project documents{" "}
+                    <T text={"Project documents"} />{" "}
                     <span className="count">{documents.length}</span>
                   </h2>
                   <p className="muted">
-                    Processed files inform discovery and analysis. New evidence
-                    resets earlier analysis.
+                    <T
+                      text={
+                        "Processed files inform discovery and analysis. New evidence resets earlier analysis."
+                      }
+                    />
                   </p>
                 </div>
               </div>
@@ -583,7 +683,8 @@ export default function Workspace({
                       </div>
                       <h3>{d.filename}</h3>
                       <small>
-                        {(d.size / 1024).toFixed(1)} KB
+                        {(d.size / 1024).toFixed(1)}
+                        <T text={" KB"} />
                         {d.chunk_count ? ` · ${d.chunk_count} text chunks` : ""}
                       </small>
                       <p>
@@ -599,7 +700,10 @@ export default function Workspace({
                       ))}
                       {!!d.facts?.length && (
                         <details>
-                          <summary>{d.facts.length} extracted facts</summary>
+                          <summary>
+                            {d.facts.length}
+                            <T text={" extracted facts"} />
+                          </summary>
                           <BulletList
                             items={d.facts.map(
                               (f) => `${f.fact} (${f.source})`,
@@ -612,7 +716,8 @@ export default function Workspace({
                         disabled={busy}
                         onClick={() => setDeleting(d.id)}
                       >
-                        <Trash2 size={14} /> Remove document
+                        <Trash2 size={14} />
+                        <T text={" Remove document"} />
                       </button>
                     </article>
                   ))}
@@ -621,8 +726,11 @@ export default function Workspace({
               <div className="setup-note">
                 <ShieldCheck size={17} />
                 <span>
-                  Text is extracted for analysis. Scanned PDFs need OCR before
-                  upload. Original files are not retained.
+                  <T
+                    text={
+                      "Text is extracted for analysis. Scanned PDFs need OCR before upload. Original files are not retained."
+                    }
+                  />
                 </span>
               </div>
             </div>
@@ -669,9 +777,14 @@ export default function Workspace({
                 <div className="blueprint-toolbar">
                   <div>
                     <span className="badge badge-green">
-                      <FileText size={13} /> Version {blueprint.version}
+                      <FileText size={13} />
+                      <T text={" Version "} />
+                      {blueprint.version}
                     </span>
-                    <span>Prepared {date(blueprint.created_at)}</span>
+                    <span>
+                      <T text={"Prepared "} />
+                      {date(blueprint.created_at)}
+                    </span>
                   </div>
                   <div>
                     <Button
@@ -690,7 +803,8 @@ export default function Workspace({
                         }
                       }}
                     >
-                      <Copy size={15} /> Copy
+                      <Copy size={15} />
+                      <T text={" Copy"} />
                     </Button>
                     <Button
                       variant="secondary"
@@ -715,20 +829,28 @@ export default function Workspace({
                         setNotice("Blueprint downloaded.");
                       }}
                     >
-                      <Download size={15} /> Download
+                      <Download size={15} />
+                      <T text={" Download"} />
                     </Button>
                     <Button size="sm" onClick={() => window.print()}>
-                      <Printer size={15} /> Print / PDF
+                      <Printer size={15} />
+                      <T text={" Print / PDF"} />
                     </Button>
                   </div>
                 </div>
                 <div className="blueprint-cover">
                   <div>
                     <span className="eyebrow">
-                      SHIFT.AI / STRATEGY & IMPLEMENTATION
+                      <T text={"shift.AI · Strategy & implementation"} />
                     </span>
                     <h2>{project.name}</h2>
-                    <p>From business context to a clear, reviewed direction.</p>
+                    <p>
+                      <T
+                        text={
+                          "From business context to a clear, reviewed direction."
+                        }
+                      />
+                    </p>
                   </div>
                   <FileText size={58} strokeWidth={1} />
                 </div>
@@ -742,10 +864,10 @@ export default function Workspace({
                 action="Continue discovery"
               />
             ))}
-          <Modal
+          <ConfirmDialog
             open={!!deleting}
-            onOpenChange={(v) => {
-              if (!action && !v) setDeleting(null);
+            onOpenChange={(open) => {
+              if (!open) setDeleting(null);
             }}
             title={
               deleting === "project"
@@ -754,47 +876,37 @@ export default function Workspace({
             }
             description={
               deleting === "project"
-                ? "This permanently deletes the project, messages, documents, and blueprints. This cannot be undone."
-                : "This removes the document and its extracted evidence. You will need to refresh discovery and run analysis again."
+                ? `?${project.name}? and all its messages, documents, and blueprints will be permanently deleted. This cannot be undone.`
+                : "This removes the document and its extracted evidence. Refresh discovery and run analysis again to update your results."
             }
-          >
-            <div className="modal-actions">
-              <Button
-                variant="secondary"
-                disabled={!!action}
-                onClick={() => setDeleting(null)}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="danger"
-                disabled={!!action}
-                onClick={async () => {
-                  setAction("Deleting");
-                  setError("");
-                  try {
-                    await api(
-                      `/projects/${id}${deleting === "project" ? "" : `/documents/${deleting}`}`,
-                      { method: "DELETE" },
-                    );
-                    if (deleting === "project") {
-                      router.push("/dashboard");
-                      return;
-                    }
-                    setDeleting(null);
-                    await load();
-                  } catch (e) {
-                    setError((e as Error).message);
-                    setDeleting(null);
-                  } finally {
-                    setAction("");
-                  }
-                }}
-              >
-                {action ? "Deleting…" : "Delete"}
-              </Button>
-            </div>
-          </Modal>
+            confirmLabel="Delete"
+            danger
+            onConfirm={async () => {
+              await api(
+                `/projects/${id}${deleting === "project" ? "" : `/documents/${deleting}`}`,
+                { method: "DELETE" },
+              );
+              setNotice(
+                deleting === "project"
+                  ? "Project deleted."
+                  : "Document removed.",
+              );
+              if (deleting === "project") router.push("/dashboard");
+              else await load();
+            }}
+          />
+          <ConfirmDialog
+            open={rerunning}
+            onOpenChange={setRerunning}
+            title="Run a fresh analysis?"
+            description="This will generate new results and replace the current analysis and blueprint. Export your current blueprint first if you want to keep a copy."
+            confirmLabel="Run analysis"
+            onConfirm={async () => {
+              await post(`/projects/${id}/analysis/run`);
+              setNotice("A fresh analysis is underway.");
+              await load();
+            }}
+          />
         </>
       )}
     </Shell>

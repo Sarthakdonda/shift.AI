@@ -1,7 +1,10 @@
 import logging
+import copy
+from datetime import timedelta
 from app.agents import prompts
 from app.core.errors import AppError
 from app.models.schemas import Discovery, DocumentSummary
+from app.models.deliverables import LANGUAGES
 from app.repositories.store import now, serialize
 from app.services.document_service import extract
 from app.services.retrieval_service import retrieve
@@ -16,10 +19,27 @@ class ProjectService:
 
     def context(self, pid, owner):
         p = self.store.project(pid, owner)
+        policy = {}
+        overrides = {}
+        if p.get('workspace_id'):
+            w = self.store.workspace(p['workspace_id'], owner)
+            policy = {k: w.get(k) for k in ['ai_policy', 'retention_days', 'model']}
+            if w.get('model'):
+                overrides['gemini_model'] = w['model']
+        # The project choice made in the composer wins over the workspace default.
+        if p.get('model'):
+            overrides['gemini_model'] = p['model']
+        if p.get('effort'):
+            overrides['gemini_effort'] = p['effort']
+            # A stored effort replaces any fixed thinking level from the environment.
+            overrides['gemini_thinking_level'] = None
+        if overrides and hasattr(self.ai.settings, 'model_copy'):
+            self.ai = copy.copy(self.ai)
+            self.ai.settings = self.ai.settings.model_copy(update=overrides)
         messages = self.store.related('messages', pid)
         query = p['initial_problem'] + ' ' + ' '.join(m['content'] for m in messages[-4:])
         chunks, warnings = retrieve(self.store, self.ai, pid, query)
-        return {'project': serialize(p), 'messages': serialize(messages[-60:]), 'previous_discovery': p.get('discovery'), 'documents': serialize(self.store.related('documents', pid)), 'evidence': chunks, 'retrieval_warnings': warnings,
+        return {'project': serialize(p), 'outcomes': serialize(list(self.store.db.outcomes.find({'project_id':pid}).sort('created_at',-1).limit(20))), 'output_language': LANGUAGES.get(p.get('language', 'en'), p.get('language', 'en')), 'workspace_policy': policy, 'messages': serialize(messages[-60:]), 'previous_discovery': p.get('discovery'), 'documents': serialize(self.store.related('documents', pid)), 'evidence': chunks, 'retrieval_warnings': warnings,
                 'evidence_policy': 'Current documents and user messages are authoritative. Earlier assistant messages are conversational questions, not independent factual evidence. Do not reuse facts from removed documents.'}
 
     def discover(self, pid, owner):
@@ -46,7 +66,7 @@ class ProjectService:
             context = self.context(pid, owner)
 
             def progress(stage, state):
-                self.store.update(pid, status=stage)
+                self.store.update(pid, status=stage, lease_until=now() + timedelta(minutes=30))
                 self.store.save_analysis(pid, {k: v for k, v in state.items() if k != 'context'})
 
             result = build_graph(self.ai, progress).invoke({'context': context, 'red_team_cycle': 0, 'red_team_history': []}, {'recursion_limit': 30})

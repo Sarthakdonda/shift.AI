@@ -10,11 +10,21 @@ class ProjectCreate(BaseModel):
     name: str = Field(min_length=2, max_length=100)
     initial_problem: str = Field(min_length=15, max_length=12000)
     industry: str = Field(default='', max_length=100)
+    workspace_id: str | None = None
+    language: str = Field(default='en', max_length=50)
 
 
 class ChatInput(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
     content: str = Field(min_length=1, max_length=12000)
+
+
+class ModelChoice(BaseModel):
+    """Per-project model and reasoning effort chosen in the composer."""
+    model_config = ConfigDict(str_strip_whitespace=True, protected_namespaces=())
+    # Restricted to provider model-id characters so the value cannot alter the request path.
+    model: str = Field(min_length=3, max_length=80, pattern=r'^[a-z0-9][a-z0-9.\-]*$')
+    effort: Literal['instant', 'low', 'medium', 'high']
 
 
 class Scores(BaseModel):

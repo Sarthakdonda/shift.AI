@@ -1,0 +1,211 @@
+/* ==========================================================================
+   shift.AI — overrides
+   Reduced motion and print. Loaded last so it wins.
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .reveal {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .marquee-track {
+    animation: none !important;
+    transform: none !important;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .button:hover,
+  .project-card:hover,
+  .process-grid article:hover,
+  .outcome-card:hover,
+  .stat-card:hover,
+  .why-list > div:hover,
+  .workflow-step:hover,
+  .component-card:hover,
+  .document-shortcut:hover,
+  .logo:hover .logo-mark {
+    transform: none !important;
+  }
+}
+
+@media print {
+  :root {
+    --sh-1: none;
+    --sh-2: none;
+    --sh-3: none;
+    --sh-4: none;
+    --sh-orange: none;
+  }
+
+  body,
+  .app-shell {
+    background: #fff !important;
+    font-size: 10.5pt;
+  }
+
+  .sidebar,
+  .sidebar-scrim,
+  .topbar,
+  .mobile-menu,
+  .stage-stepper,
+  .project-heading,
+  .blueprint-toolbar,
+  .processing-banner,
+  .error-box,
+  .notice,
+  .setup-note,
+  .scroll-progress,
+  .landing-nav {
+    display: none !important;
+  }
+
+  .app-shell {
+    display: block;
+  }
+
+  .main-content {
+    max-width: none;
+    padding: 0;
+    gap: 14px;
+    animation: none;
+  }
+
+  .reveal {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .blueprint-cover {
+    padding: 0 0 18px;
+    border: 0;
+    border-bottom: 3px solid var(--orange);
+    border-radius: 0;
+    background: #fff !important;
+    color: var(--ink) !important;
+  }
+
+  .blueprint-cover::after {
+    display: none;
+  }
+
+  .blueprint-cover h2 {
+    color: var(--ink) !important;
+  }
+
+  .blueprint-cover .eyebrow,
+  .blueprint-cover p {
+    color: #4b5665 !important;
+  }
+
+  .decision-card,
+  .solution-hero {
+    background: #f6f7f9 !important;
+    color: var(--ink) !important;
+    border: 1px solid #d9dee6;
+  }
+
+  .decision-card h2,
+  .solution-hero h2,
+  .score-circle strong,
+  .alternative strong {
+    color: var(--ink) !important;
+  }
+
+  .decision-card .eyebrow,
+  .solution-hero .eyebrow {
+    color: var(--orange-ink) !important;
+  }
+
+  .decision-top p,
+  .solution-hero p,
+  .alternative p,
+  .score-note,
+  .score-circle span,
+  .score-circle small,
+  .decision-reasons h3 {
+    color: #4b5665 !important;
+  }
+
+  .decision-card .report-list li {
+    color: #333 !important;
+  }
+
+  .alternative,
+  .score-circle {
+    background: #fff !important;
+    border-color: #d9dee6 !important;
+  }
+
+  .solution-hero .tag-row span {
+    background: #fff !important;
+    border-color: #d9dee6 !important;
+    color: #333 !important;
+  }
+
+  .panel,
+  .report-section,
+  .final-recommendation,
+  .decision-card,
+  .solution-hero {
+    break-inside: auto;
+    margin-bottom: 14px;
+  }
+
+  .finding,
+  .workflow-step,
+  .component-card,
+  .evidence-grid article,
+  .value-grid article,
+  .feasibility-grid article,
+  .roadmap article {
+    break-inside: avoid;
+  }
+
+  .report-section > h2,
+  .report-section > .section-subtitle {
+    break-after: avoid;
+  }
+
+  details:not([open]) > *:not(summary) {
+    display: revert !important;
+  }
+
+  summary {
+    list-style: none;
+  }
+
+  summary::before {
+    display: none;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  @page {
+    margin: 15mm;
+    size: A4;
+  }
+}

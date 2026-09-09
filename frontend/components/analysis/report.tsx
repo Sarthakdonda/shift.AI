@@ -1,4 +1,6 @@
 "use client";
+
+import { T } from "@/components/locale";
 import {
   ArrowRight,
   Check,
@@ -18,7 +20,9 @@ export function BulletList({ items }: { items: string[] }) {
       ))}
     </ul>
   ) : (
-    <p className="muted">None identified in the available evidence.</p>
+    <p className="muted">
+      <T text={"None identified in the available evidence."} />
+    </p>
   );
 }
 export function Section({
@@ -32,7 +36,9 @@ export function Section({
 }) {
   return (
     <section className="panel report-section">
-      <h2>{title}</h2>
+      <h2>
+        <T text={title} />
+      </h2>
       {subtitle && <p className="section-subtitle">{subtitle}</p>}
       {children}
     </section>
@@ -48,7 +54,9 @@ export function Decision({ value }: { value: Necessity }) {
     <section className={`decision-card ${noAi ? "no-ai" : ""}`}>
       <div className="decision-top">
         <div>
-          <span className="eyebrow">AI NECESSITY DECISION</span>
+          <span className="eyebrow">
+            <T text={"AI necessity decision"} />
+          </span>
           <h2>{humanize(value.classification)}</h2>
           <p>{value.recommended_approach}</p>
         </div>
@@ -57,11 +65,15 @@ export function Decision({ value }: { value: Necessity }) {
             {value.score}
             <small>/100</small>
           </strong>
-          <span>AI necessity</span>
+          <span>
+            <T text={"AI necessity"} />
+          </span>
         </div>
       </div>
       <div className="decision-reasons">
-        <h3>Why this direction</h3>
+        <h3>
+          <T text={"Why this direction"} />
+        </h3>
         <BulletList items={value.reasoning} />
       </div>
       <div className="alternative">
@@ -74,7 +86,9 @@ export function Decision({ value }: { value: Necessity }) {
         </div>
       </div>
       <p className="score-note">
-        Advisory heuristic, not a scientific measurement. Confidence:{" "}
+        <T
+          text={"Advisory heuristic, not a scientific measurement. Confidence:"}
+        />{" "}
         {Math.round(value.confidence * 100)}%.
       </p>
     </section>
@@ -84,7 +98,9 @@ export function Findings({ findings }: { findings: Finding[] }) {
   return (
     <div className="findings">
       {!findings.length && (
-        <p className="muted">No findings were identified in this review.</p>
+        <p className="muted">
+          <T text={"No findings were identified in this review."} />
+        </p>
       )}
       {findings.map((f, i) => (
         <article className="finding" key={i}>
@@ -99,13 +115,16 @@ export function Findings({ findings }: { findings: Finding[] }) {
           <div className="mitigation">
             <ShieldCheck size={17} />
             <div>
-              <strong>Mitigation</strong>
+              <strong>
+                <T text={"Mitigation"} />
+              </strong>
               <p>{f.mitigation}</p>
             </div>
           </div>
           {f.requires_revision && (
             <span className="finding-open">
-              <AlertTriangle size={13} /> Requires further attention
+              <AlertTriangle size={13} />
+              <T text={" Requires further attention"} />
             </span>
           )}
         </article>
@@ -123,12 +142,16 @@ export function DiagnosisReport({ data }: { data: Analysis }) {
         <Section title="The problem behind the request">
           <div className="root-comparison">
             <div>
-              <span className="eyebrow">WHAT YOU ASKED FOR</span>
+              <span className="eyebrow">
+                <T text={"What you asked for"} />
+              </span>
               <p>{r.user_request}</p>
             </div>
             <ArrowRight size={23} />
             <div>
-              <span className="eyebrow">WHAT NEEDS TO CHANGE</span>
+              <span className="eyebrow">
+                <T text={"What needs to change"} />
+              </span>
               <h3>{r.root_problem}</h3>
             </div>
           </div>
@@ -184,8 +207,9 @@ export function DiagnosisReport({ data }: { data: Analysis }) {
                   <p>{b.description}</p>
                   <details>
                     <summary>
-                      Supporting evidence · {Math.round(b.confidence * 100)}%
-                      confidence
+                      <T text={"Supporting evidence · "} />
+                      {Math.round(b.confidence * 100)}
+                      <T text={"% confidence"} />
                     </summary>
                     <BulletList items={b.evidence} />
                   </details>
@@ -205,7 +229,9 @@ export function DiagnosisReport({ data }: { data: Analysis }) {
                   <p>{b.description}</p>
                   <details>
                     <summary>
-                      Evidence · {Math.round(b.confidence * 100)}% confidence
+                      <T text={"Evidence · "} />
+                      {Math.round(b.confidence * 100)}
+                      <T text={"% confidence"} />
                     </summary>
                     <BulletList items={b.evidence} />
                   </details>
@@ -235,12 +261,17 @@ export function SolutionReport({
       {!reviewOnly && s && (
         <>
           <section className="solution-hero">
-            <span className="eyebrow">RECOMMENDED APPROACH</span>
+            <span className="eyebrow">
+              <T text={"Recommended approach"} />
+            </span>
             <h2>{s.title}</h2>
             <p>{s.summary}</p>
             <div className="tag-row">
               <span>{humanize(s.solution_type)}</span>
-              <span>{humanize(s.complexity)} complexity</span>
+              <span>
+                {humanize(s.complexity)}
+                <T text={" complexity"} />
+              </span>
             </div>
           </section>
           <Section
@@ -265,7 +296,9 @@ export function SolutionReport({
                   <h3>{c.name}</h3>
                   <p>{c.responsibility}</p>
                   <div className="component-why">
-                    <strong>Why it belongs</strong>
+                    <strong>
+                      <T text={"Why it belongs"} />
+                    </strong>
                     <p>{c.reason}</p>
                   </div>
                 </article>
@@ -308,7 +341,10 @@ export function SolutionReport({
                     <BulletList items={p.actions} />
                     <p className="exit-criteria">
                       <Check size={15} />
-                      <strong>Ready when:</strong> {p.exit_criteria}
+                      <strong>
+                        <T text={"Ready when:"} />
+                      </strong>{" "}
+                      {p.exit_criteria}
                     </p>
                   </div>
                 </article>
@@ -330,12 +366,55 @@ export function SolutionReport({
             <p>{r.summary}</p>
           </div>
           <Findings findings={r.findings} />
+          {!!data.solution_history?.length && (
+            <details className="review-history">
+              <summary>
+                <T text={"How the design changed"} />
+              </summary>
+              <p>
+                <T
+                  text={
+                    "Each proposal is preserved with the review that followed it. Compare the actual designs before deciding whether a finding was resolved."
+                  }
+                />
+              </p>
+              {data.solution_history.map((proposal, i) => (
+                <article key={i}>
+                  <h3>
+                    {i === 0 ? "Initial proposal" : `Revised proposal ${i}`}
+                  </h3>
+                  <p>{proposal.summary}</p>
+                  <BulletList
+                    items={proposal.components.map(
+                      (c) => `${c.name}: ${c.responsibility}`,
+                    )}
+                  />
+                  <h4>
+                    <T text={"Human controls"} />
+                  </h4>
+                  <BulletList items={proposal.human_in_loop} />
+                  <h4>
+                    <T text={"Integration approach"} />
+                  </h4>
+                  <BulletList items={proposal.integrations} />
+                  {data.red_team_history?.[i] && (
+                    <p>{data.red_team_history[i].summary}</p>
+                  )}
+                </article>
+              ))}
+            </details>
+          )}
           {(data.red_team_history?.length || 0) > 1 && (
             <details className="review-history">
-              <summary>See previous review cycles</summary>
+              <summary>
+                <T text={"See previous review cycles"} />
+              </summary>
               {data.red_team_history?.slice(0, -1).map((review, i) => (
                 <div key={i}>
-                  <h3>Review cycle {i + 1}</h3>
+                  <h3>
+                    <T text={"Review cycle "} />
+                    {i + 1}
+                  </h3>
                   <p>{review.summary}</p>
                   <Findings findings={review.findings} />
                 </div>
@@ -443,15 +522,22 @@ export function FullReport({ data }: { data: Analysis }) {
       )}
       {data.conclusion && (
         <section className="final-recommendation">
-          <span className="eyebrow">YOUR NEXT MOVE</span>
-          <h2>Final recommendation</h2>
+          <span className="eyebrow">
+            <T text={"Your next move"} />
+          </span>
+          <h2>
+            <T text={"Final recommendation"} />
+          </h2>
           <p>{data.conclusion.recommendation}</p>
           <BulletList items={data.conclusion.next_steps} />
         </section>
       )}
       <p className="report-disclaimer">
-        Prepared with shift.AI. Recommendations and scores are advisory.
-        Validate assumptions, costs, and material risks before implementation.
+        <T
+          text={
+            "Prepared with shift.AI. Recommendations and scores are advisory. Validate assumptions, costs, and material risks before implementation."
+          }
+        />
       </p>
     </>
   );

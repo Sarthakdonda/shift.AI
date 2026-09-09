@@ -7,7 +7,7 @@ test("landing, discovery, documents, no-AI analysis, reviewed blueprint, and del
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: /Better questions/ }),
+    page.getByRole("heading", { name: /Big possibilities/ }),
   ).toBeVisible();
   await expect(page.locator("body")).not.toHaveJSProperty("scrollWidth", 0);
   expect(
@@ -34,9 +34,11 @@ test("landing, discovery, documents, no-AI analysis, reviewed blueprint, and del
   const projectPath = new URL(page.url()).pathname;
   await page.getByRole("button", { name: "Begin the conversation" }).click();
   await expect(
-    page.getByText("We have enough context. You can run analysis now.", {
-      exact: true,
-    }),
+    page
+      .locator(".ready-banner")
+      .getByText("We have enough context. You can run analysis now.", {
+        exact: true,
+      }),
   ).toBeVisible();
   await page
     .getByRole("textbox", { name: "Your message" })
@@ -64,21 +66,30 @@ test("landing, discovery, documents, no-AI analysis, reviewed blueprint, and del
     ),
   ).toBeTruthy();
   await page.goto(`${projectPath}/documents`);
-  await page
-    .locator("input[type=file]")
-    .setInputFiles({
-      name: "workflow.txt",
-      mimeType: "text/plain",
-      buffer: Buffer.from(
-        "Invoices arrive by email and staff enter data in a shared spreadsheet.",
-      ),
-    });
+  await page.locator("input[type=file]").setInputFiles({
+    name: "workflow.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from(
+      "Invoices arrive by email and staff enter data in a shared spreadsheet.",
+    ),
+  });
   await expect(page.getByText("Processed", { exact: true })).toBeVisible();
   await expect(
     page.getByText("Invoice processing uses email and a shared spreadsheet.", {
       exact: true,
     }),
   ).toBeVisible();
+  await page.getByRole("button", { name: /Remove/ }).click();
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByRole("heading", { name: "Remove this document?" }),
+  ).toBeVisible();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Cancel" })
+    .click();
+  await expect(page.getByText("Processed", { exact: true })).toBeVisible();
   await page.goto(projectPath);
   await page.getByRole("button", { name: "Run analysis" }).click();
   await expect(page.getByRole("link", { name: "View blueprint" })).toBeVisible({
@@ -132,6 +143,23 @@ test("landing, discovery, documents, no-AI analysis, reviewed blueprint, and del
     fullPage: true,
   });
   await page.goto(projectPath);
+  await page.getByRole("button", { name: "Run analysis" }).click();
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByRole("heading", { name: "Run a fresh analysis?" }),
+  ).toBeVisible();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Cancel" })
+    .click();
+  await page
+    .getByRole("button", { name: "Delete project", exact: true })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Cancel" })
+    .click();
   await page
     .getByRole("button", { name: "Delete project", exact: true })
     .click();
@@ -143,7 +171,9 @@ test("landing, discovery, documents, no-AI analysis, reviewed blueprint, and del
   expect(errors).toEqual([]);
 });
 
-test("clear configuration error and usable setup screens", async ({ page }) => {
+test("service errors stay user-facing and removed settings redirect", async ({
+  page,
+}) => {
   await page.route("**/api/projects", (route) =>
     route.fulfill({
       status: 503,
@@ -153,15 +183,18 @@ test("clear configuration error and usable setup screens", async ({ page }) => {
     }),
   );
   await page.goto("/dashboard");
-  await expect(page.getByRole("main").getByRole("alert")).toContainText("MONGODB_URI");
-  await page.goto("/settings");
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(
+    "temporarily unavailable",
+  );
+  await expect(page.getByText("MONGODB_URI")).toHaveCount(0);
   await expect(
-    page.getByRole("heading", { name: "Google sign-in setup" }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Check connections" }).click();
+    page.getByRole("link", { name: /settings|connections/i }),
+  ).toHaveCount(0);
+  await page.goto("/settings");
+  await page.waitForURL("/dashboard");
   await page.goto("/login");
   await expect(
-    page.getByRole("heading", { name: "Good to have you here." }),
+    page.getByRole("heading", { name: "Welcome back." }),
   ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Continue locally" }),
