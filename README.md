@@ -7,7 +7,7 @@ Built from the supplied SRS, organizer requirements and product explanation, wit
 ## What works
 
 - Create, search, filter, resume, and delete persistent projects.
-- Adaptive discovery with ten completeness categories, one question at a time, and a critical-information gate.
+- Adaptive discovery with persistent evidence, usually one question at a time (at most three), topic deduplication, and automatic analysis when context is sufficient. The ten dashboard categories measure context, not a ten-question questionnaire.
 - PDF, DOCX, PPTX, TXT, CSV, and XLSX extraction, summaries, facts, source metadata, and project-scoped retrieval.
 - Workflow reconstruction, bottlenecks, root causes, and all six AI necessity classifications, including practical no-AI outcomes.
 - Solution architecture with AI/non-AI components, integrations, human review, roadmap, and success metrics.
@@ -121,11 +121,13 @@ When `GOOGLE_CLIENT_ID` is empty, `ALLOW_LOCAL_ACCESS=true` permits a single loc
 1. Create a project with a name and business problem.
 2. Choose **Begin the conversation**, then answer the next contextual question.
 3. Optionally add supporting documents. Uploading new evidence recomputes discovery and invalidates earlier analysis.
-4. When critical context is sufficient, choose **Run analysis**.
+4. When critical context is sufficient, discovery stops and analysis starts automatically. **Run analysis** remains available for retries or a fresh analysis.
 5. The backend runs the LangGraph workflow in the background. The frontend polls saved stage/status updates every 2.5 seconds while processing.
 6. Review Analysis, Solution, Red Team, and Blueprint. Use **Copy**, **Download**, or **Print / PDF**.
 
 If Gemini fails after an answer is saved, choose **Retry response to your saved answer** to avoid sending it twice. Failed uploads show a failure message and may be removed and uploaded again. Editing the business context invalidates prior analysis; blueprint history remains stored but is not presented as current until reanalysis completes.
+
+See [dynamic discovery](backend/DISCOVERY.md) for structured memory, evidence handling, question validation, readiness and test commands.
 
 ## Architecture
 
@@ -253,7 +255,11 @@ Generation, structured JSON repair, and embeddings use the same key pool. On quo
 
 **Quota is applied per Google project and per model.** A key that is exhausted for one model may still have room on another, so switching model in the composer can restore service.
 
-Each generation has a maximum of four provider calls, including JSON repair, with a 45-second timeout per call. Any number of keys may be configured; at most four are attempted per request to keep requests bounded. If every key is unavailable, the app returns a safe retry message and preserves saved project data. Automatic fallback retries the current provider operation; it cannot guarantee uninterrupted service or automatically resume an analysis after all attempts fail.
+Each generation can try every configured connection for the selected model, with one shared repair allowance (at least four calls total) and a 45-second timeout per call. Quota cooldowns apply to the affected model; credential failures apply to the entire key. If every connection is unavailable, the app returns a specific quota or provider error and preserves the saved message. Automatic fallback keeps the chosen model and does not send duplicate parallel generations. It cannot guarantee uninterrupted service when all connections share an exhausted quota.
+
+The composer’s **Usage & limits** panel shows connection availability and the next retry cooldown. Exact remaining requests and quota refill times are not exposed by the Gemini generation API, so the panel links to Google AI Studio instead of estimating a message allowance. Keys in the same Google Cloud project share quotas.
+
+Submitting a prompt immediately clears the composer and adds the message to the conversation. **Stop response** or **Esc** cancels discovery (and its automatic analysis continuation), releases the project for another prompt and discards a late provider result. Cancellation records are stored in MongoDB with a one-day TTL so cancellation also works across API workers. A provider call that was already submitted may still consume quota; cancellation prevents its response from being saved and prevents subsequent retries.
 
 **Google applies Gemini rate limits per project, not per API key.** Multiple keys from the same Google project do not provide separate quota. See [Google's rate-limit documentation](https://ai.google.dev/gemini-api/docs/rate-limits).
 

@@ -1,5 +1,6 @@
 from typing import Literal
 from pydantic import BaseModel, Field, ConfigDict, model_validator
+from app.models.project_context import ContextFact, Unknown, Question
 
 Score = int
 Classification = Literal['AI_REQUIRED', 'AI_OPTIONAL', 'AUTOMATION_SUFFICIENT', 'PROCESS_IMPROVEMENT', 'EXISTING_SOFTWARE_SUFFICIENT', 'HYBRID_SOLUTION']
@@ -17,6 +18,11 @@ class ProjectCreate(BaseModel):
 class ChatInput(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
     content: str = Field(min_length=1, max_length=12000)
+    request_id: str | None = Field(default=None, min_length=1, max_length=80)
+
+
+class GenerationInput(BaseModel):
+    request_id: str = Field(min_length=1, max_length=80, pattern=r'^[a-zA-Z0-9-]+$')
 
 
 class ModelChoice(BaseModel):
@@ -48,20 +54,31 @@ class Fact(BaseModel):
 
 
 class Discovery(BaseModel):
-    collected_information: list[Fact]
+    collected_information: list[ContextFact]
     missing_information: list[str]
     critical_missing: list[str]
     scores: Scores
     enough_information: bool
     next_question: str
+    assumptions: list[str]
+    unknowns: list[Unknown]
+    next_questions: list[Question] = Field(max_length=3)
+    answered_topics: list[str]
+    information_sufficiency: int = Field(ge=0, le=100)
+    readiness_reason: str = Field(min_length=1)
 
     @model_validator(mode='after')
     def gate(self):
-        self.scores.overall = round(sum(v for k, v in self.scores.model_dump().items() if k != 'overall') / 10)
+        self.scores.overall = self.information_sufficiency
         if self.critical_missing or min(self.scores.problem, self.scores.workflow, self.scores.outcome) < 60:
             self.enough_information = False
-        if not self.enough_information and not self.next_question.strip():
+        if not self.enough_information and not self.next_questions:
             raise ValueError('A useful discovery question is required when information is missing')
+        if self.enough_information:
+            self.next_questions = []
+            self.next_question = ''
+        else:
+            self.next_question = '\n\n'.join(q.question for q in self.next_questions)
         return self
 
 

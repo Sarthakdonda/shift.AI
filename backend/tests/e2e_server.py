@@ -1,5 +1,6 @@
 """Explicit browser-test server; never used by normal app startup."""
 import mongomock
+import time
 from app.core.config import get_settings
 from app.repositories.store import Store
 from app.api import routes
@@ -15,7 +16,14 @@ settings.gemini_api_keys = ''
 settings.google_client_id = ''
 settings.allow_local_access = True
 store = Store(mongomock.MongoClient().browser_test_shift_ai)
-fake = FakeGemini()
+class BrowserGemini(FakeGemini):
+    def generate_structured(self, instruction, context, schema):
+        if schema.__name__ == 'Discovery' and context.get('latest_user_message', {}).get('content', '').startswith('Cancellation test:'):
+            time.sleep(3)
+        return super().generate_structured(instruction, context, schema)
+
+
+fake = BrowserGemini()
 routes.get_store = lambda: store
 routes.get_gemini = lambda: fake
 main.get_store = lambda: store

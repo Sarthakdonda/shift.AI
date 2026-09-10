@@ -36,7 +36,7 @@ test("landing, discovery, documents, no-AI analysis, reviewed blueprint, and del
   await expect(
     page
       .locator(".ready-banner")
-      .getByText("We have enough context. You can run analysis now.", {
+      .getByText("Discovery complete. Your context is saved.", {
         exact: true,
       }),
   ).toBeVisible();
@@ -91,7 +91,9 @@ test("landing, discovery, documents, no-AI analysis, reviewed blueprint, and del
     .click();
   await expect(page.getByText("Processed", { exact: true })).toBeVisible();
   await page.goto(projectPath);
-  await page.getByRole("button", { name: "Run analysis" }).click();
+  await expect(
+    page.getByRole("link", { name: "View analysis", exact: true }),
+  ).toBeVisible();
   await expect(page.getByRole("link", { name: "View blueprint" })).toBeVisible({
     timeout: 30000,
   });
@@ -143,7 +145,7 @@ test("landing, discovery, documents, no-AI analysis, reviewed blueprint, and del
     fullPage: true,
   });
   await page.goto(projectPath);
-  await page.getByRole("button", { name: "Run analysis" }).click();
+  await page.getByRole("button", { name: /Run analysis|Run again/ }).click();
   await expect(
     page
       .getByRole("dialog")
@@ -153,6 +155,10 @@ test("landing, discovery, documents, no-AI analysis, reviewed blueprint, and del
     .getByRole("dialog")
     .getByRole("button", { name: "Cancel" })
     .click();
+  // Destructive project actions now live behind the header's project menu.
+  const openProjectMenu = () =>
+    page.getByRole("button", { name: "Project actions" }).click();
+  await openProjectMenu();
   await page
     .getByRole("button", { name: "Delete project", exact: true })
     .click();
@@ -160,6 +166,7 @@ test("landing, discovery, documents, no-AI analysis, reviewed blueprint, and del
     .getByRole("dialog")
     .getByRole("button", { name: "Cancel" })
     .click();
+  await openProjectMenu();
   await page
     .getByRole("button", { name: "Delete project", exact: true })
     .click();

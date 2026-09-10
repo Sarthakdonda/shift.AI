@@ -29,6 +29,7 @@ class Store:
         self.db = db
 
     def indexes(self):
+        self.db.generation_requests.create_index('expires_at', expireAfterSeconds=0)
         self.db.users.create_index('email', unique=True)
         self.db.auth_attempts.create_index('expires_at', expireAfterSeconds=0)
         self.db.memberships.create_index([('workspace_id', 1), ('user_id', 1)], unique=True)
@@ -125,7 +126,7 @@ class Store:
     def delete(self, pid, owner):
         self.project(pid, owner, 'admin')
         self.acquire(pid, owner)
-        for name in ['messages', 'documents', 'document_chunks', 'analyses', 'blueprints', 'artifacts', 'comments', 'reviews', 'outcomes', 'usage', 'notifications', 'activity', 'restored_archives']:
+        for name in ['messages', 'documents', 'document_chunks', 'analyses', 'blueprints', 'artifacts', 'comments', 'reviews', 'outcomes', 'usage', 'notifications', 'activity', 'restored_archives', 'generation_requests']:
             self.db[name].delete_many({'project_id': pid})
         self.db.projects.delete_one({'_id': ObjectId(pid)})
 

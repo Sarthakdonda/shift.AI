@@ -1,13 +1,19 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   LayoutDashboard,
   Plus,
   PanelLeftClose,
   PanelLeftOpen,
-  ArrowLeft,
   MessageSquare,
   Files,
   ChartNoAxesCombined,
@@ -15,8 +21,10 @@ import {
   ShieldCheck,
   FileCheck2,
   LogOut,
+  FolderOpen,
 } from "lucide-react";
 import { Logo } from "@/components/layout/logo";
+import { ChatHistory } from "@/components/layout/chat-history";
 import { T, LanguagePicker } from "@/components/locale";
 import { useSession } from "@/components/providers";
 import { ConfirmDialog, useToast } from "@/components/ui/feedback";
@@ -38,23 +46,56 @@ const workspaceNav = [
   ["Transformation", "/transformation", ChartNoAxesCombined],
 ] as const;
 
+type SidebarState = {
+  /** Mobile/tablet drawer. */
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  /** Desktop icon rail. */
+  collapsed: boolean;
+  setCollapsed: (collapsed: boolean) => void;
+};
+
+const SidebarContext = createContext<SidebarState>({
+  open: false,
+  setOpen: () => {},
+  collapsed: false,
+  setCollapsed: () => {},
+});
+
+/** Lets a page header host the navigation toggles instead of a floating button. */
+export const useShellSidebar = () => useContext(SidebarContext);
+
 export function Shell({
   children,
   projectId,
   projectName,
+  /** `chat` gives the page the full viewport and its own header. */
+  chrome = "page",
 }: {
   children: React.ReactNode;
   projectId?: string;
   projectName?: string;
+  chrome?: "page" | "chat";
 }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useSession();
   const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const toast = useToast();
   const sidebar = useRef<HTMLElement>(null);
   const items = projectId ? projectNav : workspaceNav;
+  const conversational = chrome === "chat";
+
+  useEffect(() => {
+    setCollapsed(localStorage.getItem("shift-sidebar") === "collapsed");
+  }, []);
+
+  const changeCollapsed = useCallback((next: boolean) => {
+    setCollapsed(next);
+    localStorage.setItem("shift-sidebar", next ? "collapsed" : "expanded");
+  }, []);
 
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
@@ -63,7 +104,7 @@ export function Shell({
     const focusable = () =>
       Array.from(
         sidebar.current?.querySelectorAll<HTMLElement>(
-          "a[href], button:not([disabled])",
+          "a[href], button:not([disabled]), input:not([disabled])",
         ) || [],
       );
     focusable()[0]?.focus();
@@ -103,163 +144,205 @@ export function Shell({
     projectName ||
     workspaceNav.find(([, url]) => url === pathname)?.[0] ||
     "Projects";
+  const rail = collapsed && !open;
+  const close = () => setOpen(false);
 
   return (
-    <div className="app-shell">
-      <button
-        className="mobile-menu icon-button"
-        onClick={() => setOpen(!open)}
-        aria-label="Toggle navigation"
-        aria-expanded={open}
+    <SidebarContext.Provider
+      value={{ open, setOpen, collapsed, setCollapsed: changeCollapsed }}
+    >
+      <div
+        className={`app-shell ${conversational ? "shell-chat" : ""} ${rail ? "shell-rail" : ""}`}
       >
-        {open ? <PanelLeftClose size={19} /> : <PanelLeftOpen size={19} />}
-      </button>
-      {open && (
-        <button
-          className="sidebar-scrim"
-          aria-label="Close navigation"
-          onClick={() => setOpen(false)}
-        />
-      )}
-      <aside
-        ref={sidebar}
-        className={`sidebar ${open ? "is-open" : ""}`}
-        role={open ? "dialog" : undefined}
-        aria-modal={open || undefined}
-        aria-label="Workspace navigation"
-      >
-        <Logo light />
-        <div className="workspace-label">
-          <span className="workspace-avatar" aria-hidden>
-            S
-          </span>
-          <div>
-            <T text={"Strategy workspace"} />
-            <small>
-              {user?.local ? "Personal · Local" : "Personal workspace"}
-            </small>
-          </div>
-        </div>
-        {projectId && (
-          <Link
-            className="back-link"
-            href="/dashboard"
-            onClick={() => setOpen(false)}
+        {!conversational && (
+          <button
+            className="mobile-menu icon-button"
+            onClick={() => setOpen(!open)}
+            aria-label="Toggle navigation"
+            aria-expanded={open}
           >
-            <ArrowLeft size={15} />
-            <T text={" All projects"} />
-          </Link>
+            {open ? <PanelLeftClose size={19} /> : <PanelLeftOpen size={19} />}
+          </button>
         )}
-        <p className="nav-label">
-          {projectId ? "Project workspace" : "Workspace"}
-        </p>
-        {projectName && (
-          <p className="sidebar-project" title={projectName}>
-            {projectName}
-          </p>
+        {open && (
+          <button
+            className="sidebar-scrim"
+            aria-label="Close navigation"
+            onClick={close}
+          />
         )}
-        <nav aria-label="Primary">
-          {items.map(([label, suffix, Icon]) => {
-            const href = projectId ? `/project/${projectId}${suffix}` : suffix;
-            const active = pathname === href;
-            return (
-              <Link
-                key={label}
-                href={href}
-                onClick={() => setOpen(false)}
-                aria-current={active ? "page" : undefined}
-                className={`nav-item ${active ? "active" : ""}`}
-              >
-                <Icon size={18} />
-                <T text={label} />
-                {active && <span className="nav-dot" />}
-              </Link>
-            );
-          })}
-        </nav>
-        <div className="sidebar-bottom">
-          <div className="sidebar-note">
-            <span className="tiny-orange" />
-            <T text={"Clarity before complexity."} />
-            <p>
-              <T text={"The right solution starts with the right question."} />
-            </p>
-          </div>
-          <div className="account">
-            <span className="account-avatar" aria-hidden>
-              {user?.name?.charAt(0) || "S"}
-            </span>
-            <div>
-              <strong>{user?.name || "Your workspace"}</strong>
-              <small>
-                {user?.local ? "Local access" : user?.email || "Not signed in"}
-              </small>
-            </div>
-            {user && !user.local && (
-              <button
-                className="icon-button"
-                aria-label="Sign out"
-                onClick={() => {
-                  setOpen(false);
-                  setSigningOut(true);
-                }}
-              >
-                <LogOut size={16} />
-              </button>
-            )}
-          </div>
-          {(!user || user.local) && (
-            <Link
-              className="sidebar-signin"
-              href="/login"
-              onClick={() => setOpen(false)}
+        <aside
+          ref={sidebar}
+          className={`sidebar dx-sidebar ${open ? "is-open" : ""}`}
+          role={open ? "dialog" : undefined}
+          aria-modal={open || undefined}
+          aria-label="Workspace navigation"
+        >
+          <div className="dx-sidebar-top">
+            <Logo light />
+            <button
+              type="button"
+              className="dx-collapse"
+              aria-label={rail ? "Expand sidebar" : "Collapse sidebar"}
+              aria-pressed={rail}
+              title={rail ? "Expand sidebar" : "Collapse sidebar"}
+              onClick={() => changeCollapsed(!collapsed)}
             >
-              <T text={"Sign in to your account "} />
-              <ArrowLeft size={14} />
+              {rail ? (
+                <PanelLeftOpen size={17} />
+              ) : (
+                <PanelLeftClose size={17} />
+              )}
+            </button>
+          </div>
+
+          <ChatHistory
+            projectId={projectId}
+            collapsed={rail}
+            onNavigate={close}
+          />
+
+          <div className="dx-sidebar-nav">
+            <p className="nav-label">
+              {projectId ? "Project tools" : "Workspace"}
+            </p>
+            <nav aria-label="Primary">
+              {items.map(([label, suffix, Icon]) => {
+                const href = projectId
+                  ? `/project/${projectId}${suffix}`
+                  : suffix;
+                const active = pathname === href;
+                return (
+                  <Link
+                    key={label}
+                    href={href}
+                    onClick={close}
+                    aria-current={active ? "page" : undefined}
+                    title={label}
+                    className={`nav-item ${active ? "active" : ""}`}
+                  >
+                    <Icon size={18} />
+                    <span className="dx-nav-text">
+                      <T text={label} />
+                    </span>
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
+
+          <div className="sidebar-bottom">
+            <Link className="dx-switcher" href="/dashboard" onClick={close}>
+              <span className="dx-switcher-icon" aria-hidden>
+                <FolderOpen size={16} />
+              </span>
+              <span className="dx-nav-text">
+                <strong>
+                  <T text={"All projects"} />
+                </strong>
+                <small>
+                  {user?.local ? "Personal · Local" : "Personal workspace"}
+                </small>
+              </span>
             </Link>
-          )}
-        </div>
-      </aside>
-      <div className="app-body" inert={open}>
-        <header className="topbar">
-          <LanguagePicker />
-          <div className="breadcrumb">
-            <Link href="/dashboard">
-              <T text={"Workspace"} />
-            </Link>
-            <span aria-hidden>/</span>
-            {section ? (
-              <>
-                <Link href={`/project/${projectId}`}>{page}</Link>
-                <span aria-hidden>/</span>
-                <strong>{section}</strong>
-              </>
-            ) : (
-              <strong>{page}</strong>
+            <div className="account">
+              <span className="account-avatar" aria-hidden>
+                {user?.name?.charAt(0) || "S"}
+              </span>
+              <div className="dx-nav-text">
+                <strong>{user?.name || "Your workspace"}</strong>
+                <small>
+                  {user?.local
+                    ? "Local access"
+                    : user?.email || "Not signed in"}
+                </small>
+              </div>
+              {user && !user.local && (
+                <button
+                  className="icon-button dx-nav-text"
+                  aria-label="Sign out"
+                  onClick={() => {
+                    close();
+                    setSigningOut(true);
+                  }}
+                >
+                  <LogOut size={16} />
+                </button>
+              )}
+            </div>
+            {(!user || user.local) && (
+              <Link
+                className="sidebar-signin dx-nav-text"
+                href="/login"
+                onClick={close}
+              >
+                <T text={"Sign in to your account"} />
+              </Link>
             )}
           </div>
-          <span className="topbar-tag">
-            <span className="tiny-orange" />
-            <T text={" Personal workspace"} />
-          </span>
-        </header>
-        <main className="main-content" id="main">
-          {children}
-        </main>
+        </aside>
+        <div className="app-body" inert={open}>
+          {!conversational && (
+            <header className="topbar">
+              <LanguagePicker />
+              <div className="breadcrumb">
+                <Link href="/dashboard">
+                  <T text={"Workspace"} />
+                </Link>
+                <span aria-hidden>/</span>
+                {section ? (
+                  <>
+                    <Link href={`/project/${projectId}`}>{page}</Link>
+                    <span aria-hidden>/</span>
+                    <strong>{section}</strong>
+                  </>
+                ) : (
+                  <strong>{page}</strong>
+                )}
+              </div>
+              <span className="topbar-tag">
+                <span className="tiny-orange" />
+                <T text={" Personal workspace"} />
+              </span>
+            </header>
+          )}
+          <main
+            className={`main-content ${conversational ? "main-chat" : ""}`}
+            id="main"
+          >
+            {children}
+          </main>
+        </div>
+        <ConfirmDialog
+          open={signingOut}
+          onOpenChange={setSigningOut}
+          title="Sign out of your workspace?"
+          description="Your saved projects will be here when you return. Any message you haven’t sent will be cleared."
+          confirmLabel="Sign out"
+          signout
+          onConfirm={async () => {
+            await logout();
+            toast("You’ve been signed out.");
+            router.replace("/login");
+          }}
+        />
       </div>
-      <ConfirmDialog
-        open={signingOut}
-        onOpenChange={setSigningOut}
-        title="Sign out of your workspace?"
-        description="Your saved projects will be here when you return. Any message you haven’t sent will be cleared."
-        confirmLabel="Sign out"
-        signout
-        onConfirm={async () => {
-          await logout();
-          toast("You’ve been signed out.");
-          router.replace("/login");
-        }}
-      />
-    </div>
+    </SidebarContext.Provider>
+  );
+}
+
+/** Drawer toggle for pages that render their own header instead of the topbar. */
+export function SidebarToggle() {
+  const { open, setOpen } = useShellSidebar();
+  return (
+    <button
+      type="button"
+      className="dx-icon-button dx-drawer-toggle"
+      aria-label="Toggle navigation"
+      aria-expanded={open}
+      onClick={() => setOpen(!open)}
+    >
+      {open ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
+    </button>
   );
 }

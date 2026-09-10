@@ -50,6 +50,7 @@ export type Project = {
   } | null;
   analysis_ready: boolean;
   busy: boolean;
+  active_generation_id?: string | null;
   ai_necessity: Necessity | null;
   error: string | null;
   created_at: string;
@@ -62,6 +63,7 @@ export type Message = {
   content: string;
   created_at: string;
   message_type?: string;
+  request_id?: string;
 };
 export type Document = {
   id: string;

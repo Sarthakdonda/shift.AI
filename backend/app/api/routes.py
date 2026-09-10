@@ -3,12 +3,13 @@ from fastapi import APIRouter, Depends, Request, BackgroundTasks, UploadFile, Fi
 from app.core.auth import user
 from app.core.errors import AppError
 from app.core.config import get_settings
-from app.models.schemas import ProjectCreate, ChatInput, ModelChoice
+from app.models.schemas import ProjectCreate, ChatInput, ModelChoice, GenerationInput
 from app.repositories.store import get_store, serialize, now
 from app.services.gemini_service import get_gemini
 from app.services.model_catalog import catalog
 from app.services.document_service import validate_file
 from app.services.project_service import ProjectService
+from app.services.generation_service import Generation
 
 router = APIRouter(prefix='/api', tags=['Workspace'])
 
@@ -78,14 +79,30 @@ def choose_model(pid: str, body: ModelChoice, account=Depends(user)):
     return {'model': body.model, 'effort': body.effort}
 
 
+@router.get('/projects/{pid}/usage')
+def usage(pid: str, account=Depends(user)):
+    p = get_store().project(pid, account['id'])
+    ai = get_gemini()
+    return ai.availability(p.get('model') or get_settings().gemini_model)
+
+
+@router.post('/projects/{pid}/generation/cancel')
+def cancel_generation(pid: str, body: GenerationInput, account=Depends(user)):
+    store = get_store()
+    store.project(pid, account['id'], 'write')
+    # Recording before the generation starts also handles a fast Stop click.
+    Generation(store, pid, body.request_id).cancel()
+    return {'status': 'stopped', 'request_id': body.request_id}
+
+
 @router.post('/projects/{pid}/chat')
-def chat(pid: str, body: ChatInput, account=Depends(user)):
-    return service().chat(pid, account['id'], body.content)
+def chat(pid: str, body: ChatInput, tasks: BackgroundTasks, account=Depends(user)):
+    return service().chat(pid, account['id'], body.content, tasks=tasks, request_id=body.request_id)
 
 
 @router.post('/projects/{pid}/discovery/next')
-def next_question(pid: str, account=Depends(user)):
-    return service().chat(pid, account['id'])
+def next_question(pid: str, tasks: BackgroundTasks, body: GenerationInput | None = None, account=Depends(user)):
+    return service().chat(pid, account['id'], tasks=tasks, request_id=body.request_id if body else None)
 
 
 @router.post('/projects/{pid}/analysis/run', status_code=202)
@@ -166,6 +183,16 @@ def delete_document(pid: str, did: str, account=Depends(user)):
         s.invalidate(pid)
         # Clear distilled document facts so deleted evidence cannot survive in prompts.
         s.update(pid, discovery=None, discovery_scores={})
+        # Remove evidence-dependent memory immediately; preserve user facts and question history.
+        from app.services.discovery_service import load_memory
+        p = s.project(pid, account['id'])
+        memory = load_memory(serialize(p), serialize(s.related('messages', pid)), serialize(s.related('documents', pid)))
+        memory.assumptions = []
+        memory.unknowns = []
+        memory.ready_for_analysis = False
+        memory.information_sufficiency = 0
+        memory.readiness_reason = ''
+        s.update(pid, project_context=memory.model_dump())
     finally:
         s.update(pid, busy=False)
     return {'ok': True}

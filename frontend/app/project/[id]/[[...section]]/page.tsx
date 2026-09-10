@@ -7,8 +7,6 @@ import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   ArrowUpRight,
-  Send,
-  Paperclip,
   FileText,
   Upload,
   Trash2,
@@ -18,16 +16,13 @@ import {
   Download,
   Printer,
   ShieldCheck,
-  CircleCheck,
-  Sparkles,
-  RefreshCw,
 } from "lucide-react";
 import { Shell } from "@/components/layout/shell";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog, useToast } from "@/components/ui/feedback";
 import { Empty, ErrorBox, Loading } from "@/components/ui/states";
 import { useSession } from "@/components/providers";
-import { api, post, humanize, date } from "@/lib/api";
+import { api, post, humanize, date, ApiError } from "@/lib/api";
 import type {
   Project,
   Message,
@@ -36,7 +31,8 @@ import type {
   Blueprint,
   ModelCatalog,
 } from "@/lib/types";
-import { ModelPicker } from "@/components/model-picker";
+import { DiscoveryWorkspace } from "@/components/discovery/workspace";
+import { stages, stageIndex } from "@/components/discovery/stage-progress";
 import {
   DiagnosisReport,
   SolutionReport,
@@ -46,17 +42,6 @@ import {
 } from "@/components/analysis/report";
 import { blueprintMarkdown } from "@/components/blueprint/export";
 
-const stages = ["Discovery", "Diagnosis", "Solution", "Red Team", "Blueprint"];
-const stageIndex = (status: string) =>
-  status === "BLUEPRINT_READY"
-    ? 4
-    : status === "BUSINESS_VALUE" || status === "RED_TEAM_REVIEW"
-      ? 3
-      : status === "SOLUTION_GENERATION"
-        ? 2
-        : ["SYSTEM_ANALYSIS", "AI_NECESSITY"].includes(status)
-          ? 1
-          : 0;
 export default function Workspace({
   params,
 }: {
@@ -75,15 +60,21 @@ export default function Workspace({
   const [error, setError] = useState("");
   const [action, setAction] = useState("");
   const [message, setMessage] = useState("");
+  const [pendingMessage, setPendingMessage] = useState<Message | null>(null);
+  const [stopped, setStopped] = useState(false);
+  const [stopping, setStopping] = useState(false);
+  const [generationId, setGenerationId] = useState<string | null>(null);
+  const generation = useRef<{ requestId: string; controller: AbortController } | null>(null);
+  const retryDraft = useRef<{ content: string; request_id: string } | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const setNotice = useToast();
   const [rerunning, setRerunning] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [catalog, setCatalog] = useState<ModelCatalog | null>(null);
-  const [choice, setChoice] = useState<{ model: string; effort: string } | null>(
-    null,
-  );
-  const bottom = useRef<HTMLDivElement>(null);
+  const [choice, setChoice] = useState<{
+    model: string;
+    effort: string;
+  } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const load = useCallback(async () => {
     try {
@@ -96,6 +87,7 @@ export default function Workspace({
       ]);
       setProject(p);
       setMessages(m);
+      setPendingMessage((pending) => m.some((saved) => saved.request_id === pending?.request_id) ? null : pending);
       setDocuments(d);
       setAnalysis(a);
       setBlueprint(b);
@@ -118,6 +110,9 @@ export default function Workspace({
     model: project?.model || catalog?.default_model || "",
     effort: project?.effort || catalog?.default_effort || "low",
   };
+  const effortSupported =
+    catalog?.models.find((m) => m.id === selection.model)?.supports_effort ??
+    true;
   async function chooseModel(next: { model: string; effort: string }) {
     const previous = selection;
     setChoice(next);
@@ -134,13 +129,10 @@ export default function Workspace({
     }
   }
   useEffect(() => {
-    if (!project?.busy) return;
+    if (!project?.busy && !generationId) return;
     const timer = setInterval(() => void load(), 2500);
     return () => clearInterval(timer);
-  }, [project?.busy, load]);
-  useEffect(() => {
-    bottom.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }, [messages.length]);
+  }, [project?.busy, generationId, load]);
   const busy = !!action || !!project?.busy;
   async function perform(name: string, fn: () => Promise<unknown>) {
     setAction(name);
@@ -171,6 +163,79 @@ export default function Workspace({
     );
     if (fileInput.current) fileInput.current.value = "";
   }
+  async function generate(content?: string, retry = false) {
+    if (busy || generation.current) return;
+    const draft = retry ? retryDraft.current : null;
+    const requestId = draft?.request_id || crypto.randomUUID();
+    const text = draft?.content ?? content;
+    const controller = new AbortController();
+    generation.current = { requestId, controller };
+    setGenerationId(requestId);
+    setStopped(false);
+    setAction("Thinking through your answer");
+    setError("");
+    if (text) {
+      retryDraft.current = { content: text, request_id: requestId };
+      setMessage("");
+      if (!messages.some((m) => m.request_id === requestId)) {
+        setPendingMessage({ id: requestId, request_id: requestId, role: "user", content: text, created_at: new Date().toISOString() });
+      }
+    }
+    try {
+      await post(`/projects/${id}/${text ? "chat" : "discovery/next"}`, {
+        ...(text ? { content: text } : {}), request_id: requestId,
+      }, controller.signal);
+      retryDraft.current = null;
+    } catch (e) {
+      if (!controller.signal.aborted && !(e instanceof ApiError && e.code === "generation_cancelled")) {
+        setError((e as Error).message);
+      }
+    } finally {
+      if (generation.current?.requestId === requestId) {
+        await load();
+        generation.current = null;
+        setGenerationId(null);
+        setAction("");
+      }
+    }
+  }
+  async function send() {
+    if (message.trim()) await generate(message.trim());
+  }
+  const stop = useCallback(async () => {
+    const current = generation.current;
+    const requestId = current?.requestId || project?.active_generation_id;
+    if (!requestId || stopping) return;
+    setStopping(true);
+    try {
+      await post(`/projects/${id}/generation/cancel`, { request_id: requestId });
+      setStopped(true);
+      retryDraft.current = null;
+      current?.controller.abort();
+      await load();
+      if (pendingMessage) {
+        const saved = await api<Message[]>(`/projects/${id}/messages`);
+        if (!saved.some((m) => m.request_id === pendingMessage.request_id)) {
+          setPendingMessage(null);
+          setMessage((draft) => draft || pendingMessage.content);
+        }
+      }
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setStopping(false);
+    }
+  }, [id, project?.active_generation_id, stopping, load, pendingMessage]);
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !event.defaultPrevented && (generation.current || project?.active_generation_id)) {
+        event.preventDefault();
+        void stop();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [stop, project?.active_generation_id]);
   const runAnalysis = () =>
     perform("Starting analysis", () => post(`/projects/${id}/analysis/run`));
   const startAnalysis = () =>
@@ -185,8 +250,14 @@ export default function Workspace({
       "blueprint",
     ].includes(tab) &&
     (!section || section.length <= 1);
+  const conversational =
+    tab === "discovery" && isKnownTab && (loading || !!project);
   return (
-    <Shell projectId={id} projectName={project?.name}>
+    <Shell
+      projectId={id}
+      projectName={project?.name}
+      chrome={conversational ? "chat" : "page"}
+    >
       <input
         ref={fileInput}
         type="file"
@@ -210,6 +281,49 @@ export default function Workspace({
           description="Choose a project section from the navigation."
           href={`/project/${id}`}
         />
+      ) : tab === "discovery" ? (
+        <>
+          <DiscoveryWorkspace
+            project={project}
+            messages={pendingMessage && !messages.some((m) => m.request_id === pendingMessage.request_id) ? [...messages, pendingMessage] : messages}
+            documents={documents}
+            catalog={catalog}
+            model={selection.model}
+            effort={selection.effort}
+            effortSupported={effortSupported}
+            busy={busy}
+            action={action}
+            stopped={stopped}
+            stopping={stopping}
+            onStop={generationId || project.active_generation_id ? () => void stop() : undefined}
+            error={error}
+            message={message}
+            onMessage={setMessage}
+            onSend={() => void send()}
+            onBegin={() => void generate()}
+            onRetry={() => void generate(undefined, true)}
+            onUpload={() => fileInput.current?.click()}
+            onRunAnalysis={() => void startAnalysis()}
+            onDelete={() => setDeleting("project")}
+            onModel={(model) => void chooseModel({ ...selection, model })}
+            onEffort={(effort) => void chooseModel({ ...selection, effort })}
+            onDismissError={() => {
+              setError("");
+              void generate(undefined, true);
+            }}
+          />
+          <ProjectDialogs
+            deleting={deleting}
+            setDeleting={setDeleting}
+            rerunning={rerunning}
+            setRerunning={setRerunning}
+            project={project}
+            id={id}
+            load={load}
+            setNotice={setNotice}
+            router={router}
+          />
+        </>
       ) : (
         <>
           <div className="project-heading">
@@ -226,17 +340,15 @@ export default function Workspace({
               </div>
               <h1>{project.name}</h1>
               <p>
-                {tab === "discovery"
-                  ? "Let’s build a clear picture of what’s happening, and what could be better."
-                  : tab === "documents"
-                    ? "Add the evidence that helps us understand your business."
-                    : tab === "analysis"
-                      ? "Understand the system, the root problem, and whether AI belongs."
-                      : tab === "solution"
-                        ? "A practical approach, built around your actual needs."
-                        : tab === "red-team"
-                          ? "A second opinion on assumptions, risks, and what could go wrong."
-                          : "Your evidence-backed strategy and implementation plan."}
+                {tab === "documents"
+                  ? "Add the evidence that helps us understand your business."
+                  : tab === "analysis"
+                    ? "Understand the system, the root problem, and whether AI belongs."
+                    : tab === "solution"
+                      ? "A practical approach, built around your actual needs."
+                      : tab === "red-team"
+                        ? "A second opinion on assumptions, risks, and what could go wrong."
+                        : "Your evidence-backed strategy and implementation plan."}
               </p>
             </div>
             <div className="heading-actions">
@@ -249,26 +361,24 @@ export default function Workspace({
                   <ArrowUpRight size={15} />
                 </Link>
               )}
-              <button
-                className="icon-button"
-                aria-label="Delete project"
-                disabled={busy}
-                onClick={() => setDeleting("project")}
+              <Link
+                className="button button-secondary button-sm"
+                href={`/project/${id}`}
               >
-                <Trash2 size={17} />
-              </button>
+                <T text={"Back to conversation"} />
+              </Link>
             </div>
           </div>
           <div className="stage-stepper">
-            {stages.map((s, i) => (
+            {stages.map(([label], i) => (
               <div
                 className={i <= stageIndex(project.status) ? "complete" : ""}
-                key={s}
+                key={label}
               >
                 <span>
                   {i < stageIndex(project.status) ? <Check size={14} /> : i + 1}
                 </span>
-                {s}
+                {label}
                 {i < 4 && <i />}
               </div>
             ))}
@@ -306,301 +416,6 @@ export default function Workspace({
               </div>
             </div>
           )}
-          {tab === "discovery" && (
-            <div className="discovery-layout">
-              <section className="panel conversation">
-                <header>
-                  <div className="row">
-                    <span className="assistant-avatar">
-                      <Sparkles size={19} />
-                    </span>
-                    <div>
-                      <h2>
-                        <T text={"Let’s understand the challenge"} />
-                      </h2>
-                      <small>
-                        <T text={"Discovery · One useful question at a time"} />
-                      </small>
-                    </div>
-                  </div>
-                  <span className="badge">
-                    <span className="tiny-orange" />
-                    <T text={" Your thinking partner"} />
-                  </span>
-                </header>
-                <div className="messages">
-                  {messages.map((m) => (
-                    <div className={`message ${m.role}`} key={m.id}>
-                      <span
-                        className={`message-avatar ${m.role === "assistant" ? "assistant-avatar" : ""}`}
-                      >
-                        {m.role === "assistant" ? <Sparkles size={15} /> : "Y"}
-                      </span>
-                      <div>
-                        <div className="message-label">
-                          {m.role === "assistant" ? "shift.AI" : "You"}{" "}
-                          <span>
-                            {new Date(m.created_at).toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </span>
-                        </div>
-                        <div className="message-content">{m.content}</div>
-                      </div>
-                    </div>
-                  ))}
-                  {!messages.some((m) => m.role === "assistant") && (
-                    <div className="discovery-start">
-                      <span className="assistant-avatar">
-                        <Sparkles size={19} />
-                      </span>
-                      <h3>
-                        <T text={"Every good solution starts here."} />
-                      </h3>
-                      <p>
-                        <T
-                          text={
-                            "I’ll help uncover the problem behind your request, using your answers and any documents you add."
-                          }
-                        />
-                      </p>
-                      <Button
-                        disabled={busy}
-                        onClick={() =>
-                          void perform("Preparing your first question", () =>
-                            post(`/projects/${id}/discovery/next`),
-                          )
-                        }
-                      >
-                        {busy ? "Preparing…" : "Begin the conversation"}
-                        <ArrowRight size={16} />
-                      </Button>
-                    </div>
-                  )}
-                  {action && (
-                    <div className="thinking" role="status">
-                      <LoaderCircle size={16} className="spin" />
-                      {action}…
-                    </div>
-                  )}
-                  <div ref={bottom} />
-                </div>
-                {project.analysis_ready && !project.busy && (
-                  <div className="ready-banner">
-                    <CircleCheck size={21} />
-                    <div>
-                      <strong>
-                        <T
-                          text={
-                            "We have enough context. You can run analysis now."
-                          }
-                        />
-                      </strong>
-                      <span>
-                        <T
-                          text={
-                            "Next: diagnose the root problem, weigh the options, and review the recommendation."
-                          }
-                        />
-                      </span>
-                    </div>
-                    <Button
-                      size="sm"
-                      disabled={busy}
-                      onClick={() => void startAnalysis()}
-                    >
-                      <T text={"Run analysis "} />
-                      <ArrowRight size={15} />
-                    </Button>
-                  </div>
-                )}
-                <form
-                  className="composer"
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    if (!message.trim() || busy) return;
-                    const content = message;
-                    await perform("Thinking through your answer", async () => {
-                      try {
-                        await post(`/projects/${id}/chat`, { content });
-                        setMessage("");
-                      } catch (e) {
-                        const saved = await api<Message[]>(
-                          `/projects/${id}/messages`,
-                        );
-                        if (
-                          saved.at(-1)?.role === "user" &&
-                          saved.at(-1)?.content === content
-                        )
-                          setMessage("");
-                        throw e;
-                      }
-                    });
-                  }}
-                >
-                  <textarea
-                    aria-label="Your message"
-                    rows={2}
-                    maxLength={12000}
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    placeholder="Share a little more about your process…"
-                    disabled={busy}
-                    onKeyDown={(e) => {
-                      if (
-                        e.key === "Enter" &&
-                        !e.shiftKey &&
-                        !e.nativeEvent.isComposing
-                      ) {
-                        e.preventDefault();
-                        e.currentTarget.form?.requestSubmit();
-                      }
-                    }}
-                  />
-                  <div className="composer-bottom">
-                    <button
-                      type="button"
-                      className="text-button"
-                      disabled={busy}
-                      onClick={() => fileInput.current?.click()}
-                    >
-                      <Paperclip size={17} />
-                      <T text={" Add context"} />
-                    </button>
-                    {catalog && (
-                      <ModelPicker
-                        models={catalog.models}
-                        efforts={catalog.efforts}
-                        model={selection.model}
-                        effort={selection.effort}
-                        disabled={busy}
-                        onChange={(next) => void chooseModel(next)}
-                      />
-                    )}
-                    <span>
-                      <T
-                        text={"Enter to send · Shift + Enter for a new line"}
-                      />
-                    </span>
-                    <Button
-                      type="submit"
-                      size="sm"
-                      disabled={busy || !message.trim()}
-                      aria-label="Send message"
-                    >
-                      <Send size={17} />
-                    </Button>
-                  </div>
-                </form>
-                <div className="chat-footer">
-                  <T
-                    text={
-                      "Your context stays with this project. Recommendations follow the evidence."
-                    }
-                  />
-                </div>
-                {messages.at(-1)?.role === "user" &&
-                  messages.length > 1 &&
-                  !busy && (
-                    <button
-                      className="text-button retry-discovery"
-                      onClick={() =>
-                        void perform("Retrying discovery", () =>
-                          post(`/projects/${id}/discovery/next`),
-                        )
-                      }
-                    >
-                      <RefreshCw size={14} />
-                      <T text={" Retry response to your saved answer"} />
-                    </button>
-                  )}
-              </section>
-              <aside className="discovery-sidebar">
-                <section className="panel discovery-progress">
-                  <div className="row-between">
-                    <h3>
-                      <T text={"Building the picture"} />
-                    </h3>
-                    <span className="progress-total">
-                      {project.discovery_scores.overall || 0}
-                      <small>%</small>
-                    </span>
-                  </div>
-                  <p>
-                    <T text={"Context gathered, not certainty."} />
-                  </p>
-                  {[
-                    "business",
-                    "problem",
-                    "workflow",
-                    "people",
-                    "technology",
-                    "data",
-                    "constraints",
-                    "impact",
-                    "integrations",
-                    "outcome",
-                  ].map((k) => (
-                    <div className="category-progress" key={k}>
-                      <div className="row-between">
-                        <span>{humanize(k)}</span>
-                        <small>{project.discovery_scores[k] || 0}%</small>
-                      </div>
-                      <div className="progress-track">
-                        <span
-                          style={{
-                            width: `${project.discovery_scores[k] || 0}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </section>
-                <section className="warm-panel">
-                  <span className="eyebrow">
-                    <T text={"Why we ask"} />
-                  </span>
-                  <h3>
-                    <T text={"Understand first."} />
-                    <br />
-                    <T text={"Recommend second."} />
-                  </h3>
-                  <p>
-                    <T
-                      text={
-                        "The right solution might be AI, simple automation, or a better way of working. Your context tells us which."
-                      }
-                    />
-                  </p>
-                </section>
-                {!!project.discovery?.critical_missing.length && (
-                  <section className="panel context-gaps">
-                    <h3>
-                      <T text={"Still to understand"} />
-                    </h3>
-                    <BulletList items={project.discovery.critical_missing} />
-                  </section>
-                )}
-                <Link
-                  href={`/project/${id}/documents`}
-                  className="document-shortcut"
-                >
-                  <FileText size={19} />
-                  <div>
-                    <strong>
-                      {documents.length}
-                      <T text={" supporting documents"} />
-                    </strong>
-                    <span>
-                      <T text={"Add evidence to the conversation"} />
-                    </span>
-                  </div>
-                  <ArrowUpRight size={17} />
-                </Link>
-              </aside>
-            </div>
-          )}
           {tab === "documents" && (
             <div className="documents-page">
               <div
@@ -634,7 +449,7 @@ export default function Workspace({
                   disabled={busy}
                   onClick={() => fileInput.current?.click()}
                 >
-                  <PlusFile />
+                  <Upload size={16} />
                   <T text={" Choose a file"} />
                 </Button>
                 <small>
@@ -864,54 +679,88 @@ export default function Workspace({
                 action="Continue discovery"
               />
             ))}
-          <ConfirmDialog
-            open={!!deleting}
-            onOpenChange={(open) => {
-              if (!open) setDeleting(null);
-            }}
-            title={
-              deleting === "project"
-                ? "Delete this project?"
-                : "Remove this document?"
-            }
-            description={
-              deleting === "project"
-                ? `?${project.name}? and all its messages, documents, and blueprints will be permanently deleted. This cannot be undone.`
-                : "This removes the document and its extracted evidence. Refresh discovery and run analysis again to update your results."
-            }
-            confirmLabel="Delete"
-            danger
-            onConfirm={async () => {
-              await api(
-                `/projects/${id}${deleting === "project" ? "" : `/documents/${deleting}`}`,
-                { method: "DELETE" },
-              );
-              setNotice(
-                deleting === "project"
-                  ? "Project deleted."
-                  : "Document removed.",
-              );
-              if (deleting === "project") router.push("/dashboard");
-              else await load();
-            }}
-          />
-          <ConfirmDialog
-            open={rerunning}
-            onOpenChange={setRerunning}
-            title="Run a fresh analysis?"
-            description="This will generate new results and replace the current analysis and blueprint. Export your current blueprint first if you want to keep a copy."
-            confirmLabel="Run analysis"
-            onConfirm={async () => {
-              await post(`/projects/${id}/analysis/run`);
-              setNotice("A fresh analysis is underway.");
-              await load();
-            }}
+          <ProjectDialogs
+            deleting={deleting}
+            setDeleting={setDeleting}
+            rerunning={rerunning}
+            setRerunning={setRerunning}
+            project={project}
+            id={id}
+            load={load}
+            setNotice={setNotice}
+            router={router}
           />
         </>
       )}
     </Shell>
   );
 }
-function PlusFile() {
-  return <Upload size={16} />;
+
+/** Confirmation dialogs shared by the conversation and the report tabs. */
+function ProjectDialogs({
+  deleting,
+  setDeleting,
+  rerunning,
+  setRerunning,
+  project,
+  id,
+  load,
+  setNotice,
+  router,
+}: {
+  deleting: string | null;
+  setDeleting: (value: string | null) => void;
+  rerunning: boolean;
+  setRerunning: (value: boolean) => void;
+  project: Project;
+  id: string;
+  load: () => Promise<void>;
+  setNotice: (message: string) => void;
+  router: ReturnType<typeof useRouter>;
+}) {
+  return (
+    <>
+      <ConfirmDialog
+        open={!!deleting}
+        onOpenChange={(open) => {
+          if (!open) setDeleting(null);
+        }}
+        title={
+          deleting === "project"
+            ? "Delete this project?"
+            : "Remove this document?"
+        }
+        description={
+          deleting === "project"
+            ? `“${project.name}” and all its messages, documents, and blueprints will be permanently deleted. This cannot be undone.`
+            : "This removes the document and its extracted evidence. Refresh discovery and run analysis again to update your results."
+        }
+        confirmLabel="Delete"
+        danger
+        onConfirm={async () => {
+          await api(
+            `/projects/${id}${deleting === "project" ? "" : `/documents/${deleting}`}`,
+            { method: "DELETE" },
+          );
+          setNotice(
+            deleting === "project" ? "Project deleted." : "Document removed.",
+          );
+          if (deleting === "project") router.push("/dashboard");
+          else await load();
+        }}
+      />
+      <ConfirmDialog
+        open={rerunning}
+        onOpenChange={setRerunning}
+        title="Run a fresh analysis?"
+        description="This will generate new results and replace the current analysis and blueprint. Export your current blueprint first if you want to keep a copy."
+        confirmLabel="Run analysis"
+        onConfirm={async () => {
+          await post(`/projects/${id}/analysis/run`);
+          setNotice("A fresh analysis is underway.");
+          await load();
+        }}
+      />
+    </>
+  );
 }

@@ -2,6 +2,8 @@
 
 FastAPI, MongoDB Atlas, Gemini, and LangGraph. See the [root setup guide](../README.md) for full configuration and Google authentication instructions.
 
+See [dynamic discovery](DISCOVERY.md) for the question loop, persistent context, document evidence, automatic analysis transition and verification commands.
+
 ```powershell
 Copy-Item .env.example .env
 python -m venv .venv

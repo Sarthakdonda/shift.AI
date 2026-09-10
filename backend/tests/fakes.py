@@ -12,6 +12,12 @@ class FakeGemini:
     def require(self):
         return self
 
+    def availability(self, model=None):
+        return {'model': model, 'configured_connections': 2, 'available_connections': 2, 'status': 'available',
+                'retry_after_seconds': None, 'retry_at': None, 'remaining_requests': None, 'request_limit': None,
+                'reset_at': None, 'quota_note': 'Exact remaining requests and quota resets are not reported by this API. View your project limits in Google AI Studio.',
+                'quota_url': 'https://aistudio.google.com/usage?tab=rate-limit'}
+
     def generate_structured(self, instruction, context, schema):
         self.calls.append(schema.__name__)
         if schema.__name__ == 'Deliverable':
@@ -21,8 +27,9 @@ class FakeGemini:
         finding = {'category': 'INTEGRATION', 'severity': 'HIGH', 'issue': 'Accounting API access is not confirmed', 'reason': 'The supplied workflow names an accounting tool but no available API.', 'mitigation': 'Validate API access before implementation; use a reviewed CSV import as fallback.', 'requires_revision': self.always_revise}
         evidence = {'title': 'Duplicate entry', 'description': 'Staff retype the same invoice data.', 'evidence': ['User message: invoices copied from email to spreadsheet.'], 'confidence': 0.9}
         dimension = {'score': 75, 'reason': 'Validate access in a small pilot.'}
+        source_id = context.get('latest_user_message', {}).get('id', 'test-message') if isinstance(context, dict) else 'test-message'
         values = {
-            'Discovery': {'collected_information': [{'category': 'workflow', 'fact': 'Staff retype invoice data', 'source': 'User message'}], 'missing_information': [], 'critical_missing': [], 'scores': {k: 80 for k in Scores.model_fields}, 'enough_information': True, 'next_question': 'We have enough context. You can run analysis now.'},
+            'Discovery': {'collected_information': [{'category': 'workflow', 'topic': 'workflow.entry', 'fact': 'Staff retype invoice data', 'source': 'User message', 'source_ids': [source_id]}], 'missing_information': [], 'critical_missing': [], 'scores': {k: 80 for k in Scores.model_fields}, 'enough_information': True, 'next_question': '', 'next_questions': [], 'assumptions': [], 'unknowns': [], 'answered_topics': [], 'information_sufficiency': 80, 'readiness_reason': 'Test fixture supplies the workflow, problem and outcome.'},
             'DocumentSummary': {'summary': 'Invoice processing uses email and a shared spreadsheet.', 'facts': [{'category': 'technology', 'fact': 'A shared spreadsheet tracks invoices', 'source': 'workflow.txt, page 1'}]},
             'WorkflowAnalysis': {'business_context': 'The operations team processes invoices.', 'current_system': {'people': ['Operations staff'], 'process': 'Copy invoice details, review, then import.', 'technology': ['Email', 'Spreadsheet'], 'data': ['Invoice records']}, 'workflow': [{'name': 'Receive invoice', 'owner': 'Operations staff', 'description': 'Read incoming email.', 'tools': ['Email']}, {'name': 'Record details', 'owner': 'Operations staff', 'description': 'Retype invoice details.', 'tools': ['Spreadsheet']}], 'bottlenecks': [evidence]},
             'RootCause': {'user_request': 'Use AI for invoices', 'root_problem': 'Duplicate entry between disconnected tools', 'root_causes': [evidence], 'assumptions': ['API access requires validation.']},

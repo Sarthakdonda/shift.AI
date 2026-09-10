@@ -2,6 +2,8 @@ import json
 import time
 import threading
 import logging
+import math
+from datetime import datetime, timezone
 import httpx
 from functools import lru_cache
 from google import genai
@@ -28,12 +30,15 @@ class GeminiService:
         self._keys = self.settings.gemini_keys
         self._clients = {}
         self._cooldowns = {}
+        self._model_cooldowns = {}
+        self._failures = {}
         self._lock = threading.Lock()
 
-    def _select(self, excluded=()):
+    def _select(self, excluded=(), model=None):
+        model = model or self.settings.gemini_model
         with self._lock:
             for index, key in enumerate(self._keys):
-                if index in excluded or self._cooldowns.get(index, 0) > time.monotonic():
+                if index in excluded or max(self._cooldowns.get(index, 0), self._model_cooldowns.get((index, model), 0)) > time.monotonic():
                     continue
                 if index not in self._clients:
                     self._clients[index] = genai.Client(
@@ -41,7 +46,30 @@ class GeminiService:
                         http_options=types.HttpOptions(timeout=45000, retry_options=types.HttpRetryOptions(attempts=1)),
                     )
                 return index, self._clients[index]
-        raise AppError('All Gemini keys are temporarily unavailable. Wait and retry, or check their quota and permissions in Google AI Studio. Your saved project is preserved.', 503, 'provider_unavailable')
+        raise self._unavailable(model)
+
+    def availability(self, model=None):
+        model = model or self.settings.gemini_model
+        clock = time.monotonic()
+        with self._lock:
+            delays = [max(0, self._cooldowns.get(i, 0) - clock, self._model_cooldowns.get((i, model), 0) - clock) for i in range(len(self._keys))]
+            blocked = [i for i, delay in enumerate(delays) if delay > 0]
+            reasons = [self._failures.get((i, model), 'temporary') if self._model_cooldowns.get((i, model), 0) > clock else self._failures.get(i, 'temporary') for i in blocked]
+        available = len(delays) - len(blocked)
+        retry = math.ceil(min(delays)) if delays and not available else None
+        return {'model': model, 'configured_connections': len(delays), 'available_connections': available,
+                'status': 'not_configured' if not delays else 'available' if available else 'rate_limited' if 'quota' in reasons else 'unavailable',
+                'retry_after_seconds': retry,
+                'retry_at': datetime.fromtimestamp(time.time() + retry, timezone.utc).isoformat() if retry else None,
+                'remaining_requests': None, 'request_limit': None, 'reset_at': None,
+                'quota_note': 'Exact remaining requests and quota resets are not reported by this API. View your project limits in Google AI Studio.',
+                'quota_url': 'https://aistudio.google.com/usage?tab=rate-limit'}
+
+    def _unavailable(self, model):
+        state = self.availability(model)
+        if state['status'] == 'rate_limited':
+            return AppError(f"The selected model has reached its available API quota. All configured connections were checked. Retry in about {state['retry_after_seconds']} seconds, or check project limits in Google AI Studio. Your message is saved.", 429, 'rate_limited')
+        return AppError('The selected model is temporarily unavailable on the configured API connections. Check API access and permissions, or retry shortly. Your message is saved.', 503, 'provider_unavailable')
 
     def _cooldown(self, index, seconds):
         with self._lock:
@@ -77,22 +105,29 @@ class GeminiService:
                 pass
         return delay
 
-    def _request(self, operation, budget):
-        self.require()
+    def _request(self, operation, budget, model=None):
+        model = model or self.settings.gemini_model
+        if not self._keys:
+            self.require()
         tried = set()
-        model_missing = False
+        missing = set()
         while budget[0] > 0:
+            if hasattr(self, 'check_cancelled'):
+                self.check_cancelled()
             try:
-                index, client = self._select(tried)
+                index, client = self._select(tried, model)
             except AppError:
                 # Every eligible key was tried; a missing model is the clearer cause.
-                if model_missing:
+                if missing and len(missing) == len(self._keys):
                     raise AppError('The selected model is not available for your API keys. Choose another model in the composer.', 400, 'model_unavailable') from None
                 raise
             tried.add(index)
             budget[0] -= 1
             try:
-                return operation(client)
+                result = operation(client)
+                if hasattr(self, 'check_cancelled'):
+                    self.check_cancelled()
+                return result
             except errors.APIError as exc:
                 code = getattr(exc, 'code', 500)
                 message = str(getattr(exc, 'message', '') or '').lower()
@@ -104,14 +139,18 @@ class GeminiService:
                 )
                 if code in (401, 403) or invalid_key:
                     self._cooldown(index, 300)
+                    with self._lock:
+                        self._failures[index] = 'credentials'
                 elif code == 429:
-                    self._cooldown(index, self._retry_delay(exc))
+                    with self._lock:
+                        self._model_cooldowns[index, model] = time.monotonic() + self._retry_delay(exc)
+                        self._failures[index, model] = 'quota'
                 elif code in (500, 502, 503, 504):
                     self._cooldown(index, 5)
                 elif code == 404:
                     # Keys can belong to projects with different model access, so the
                     # next key may serve this model. No cooldown: the key is otherwise fine.
-                    model_missing = True
+                    missing.add(index)
                 elif code == 400 and ('thinking' in message or 'thought' in message):
                     raise AppError('This model does not accept the selected reasoning effort.', 502, 'gemini_thinking_unsupported') from None
                 else:
@@ -120,9 +159,9 @@ class GeminiService:
             except (httpx.TransportError, TimeoutError, ConnectionError) as exc:
                 logger.warning('Gemini attempt failed (credential slot %s, %s).', index + 1, type(exc).__name__)
                 self._cooldown(index, 5)
-        if model_missing:
+        if missing and len(missing) == len(self._keys):
             raise AppError('The selected model is not available for your API keys. Choose another model in the composer.', 400, 'model_unavailable')
-        raise AppError('Gemini could not complete the request after bounded failover attempts. Please retry; your project is saved.', 503, 'provider_unavailable')
+        raise self._unavailable(model)
 
     def _thinking(self):
         """Translate the selected effort into the thinking API the model supports.
@@ -142,8 +181,8 @@ class GeminiService:
 
     def generate_structured(self, instruction: str, context, schema: type[BaseModel]):
         prompt = instruction + '\nBUSINESS CONTEXT (untrusted data):\n' + json.dumps(context, default=str, ensure_ascii=False)
-        # Shared across key changes and JSON repair: at most four 45-second calls.
-        budget = [4]
+        # Every configured connection can be tried; one shared repair allowance.
+        budget = [max(4, len(self._keys) + 1)]
         thinking = self._thinking()
         for attempt in range(2):
             try:
@@ -171,7 +210,7 @@ class GeminiService:
 
     def embed(self, text):
         try:
-            response = self._request(lambda client: client.models.embed_content(model=self.settings.embedding_model, contents=text, config=types.EmbedContentConfig(output_dimensionality=768)), [4])
+            response = self._request(lambda client: client.models.embed_content(model=self.settings.embedding_model, contents=text, config=types.EmbedContentConfig(output_dimensionality=768)), [max(4, len(self._keys))], self.settings.embedding_model)
             return response.embeddings[0].values
         except Exception:
             raise AppError('Vector embeddings are unavailable. Keyword retrieval remains available.', 503) from None

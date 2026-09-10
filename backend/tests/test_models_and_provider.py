@@ -7,6 +7,12 @@ from app.models.schemas import Discovery, Scores, Necessity
 from app.services.gemini_service import GeminiService
 
 
+def discovery_fields(question):
+    return dict(assumptions=[], unknowns=[], answered_topics=[], information_sufficiency=30,
+                readiness_reason='Core context still missing.', next_questions=[{
+                    'question': question, 'topic': 'workflow.process', 'reason': 'Understand the process', 'priority': 'high'}])
+
+
 @pytest.mark.parametrize('classification', ['AI_REQUIRED','AI_OPTIONAL','AUTOMATION_SUFFICIENT','PROCESS_IMPROVEMENT','EXISTING_SOFTWARE_SUFFICIENT','HYBRID_SOLUTION'])
 def test_all_decision_classes(classification):
     n = Necessity(classification=classification, score=50, reasoning=['Evidence'], non_ai_alternative='Rules', recommended_approach='Pilot', confidence=0.8)
@@ -19,12 +25,12 @@ def test_invalid_decision_and_score_rejected():
 
 
 def test_critical_missing_blocks_even_high_score():
-    d = Discovery(collected_information=[], missing_information=['Outcome'], critical_missing=['Outcome'], scores=Scores(**{k: 99 for k in Scores.model_fields}), enough_information=True, next_question='What outcome matters most?')
+    d = Discovery(collected_information=[], missing_information=['Outcome'], critical_missing=['Outcome'], scores=Scores(**{k: 99 for k in Scores.model_fields}), enough_information=True, next_question='What outcome matters most?', **discovery_fields('What outcome matters most?'))
     assert d.enough_information is False
 
 
 def test_unknown_workflow_blocks_even_without_model_flag():
-    d = Discovery(collected_information=[], missing_information=[], critical_missing=[], scores=Scores(business=100, problem=100, workflow=0, outcome=100), enough_information=True, next_question='Walk me through the current process?')
+    d = Discovery(collected_information=[], missing_information=[], critical_missing=[], scores=Scores(business=100, problem=100, workflow=0, outcome=100), enough_information=True, next_question='Walk me through the current process?', **discovery_fields('Walk me through the current process?'))
     assert d.enough_information is False and d.scores.overall == 30
 
 

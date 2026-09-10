@@ -31,6 +31,10 @@
   overscroll-behavior: contain;
 }
 
+.sidebar > * {
+  flex-shrink: 0;
+}
+
 /* ---------- A larger conversation ---------- */
 
 .discovery-layout {
@@ -52,6 +56,9 @@
   min-height: 320px;
   padding: 24px 26px;
   gap: 22px;
+  overflow: visible;
+  overscroll-behavior: auto;
+  align-content: start;
 }
 
 .message-content {
@@ -59,14 +66,12 @@
   line-height: 1.75;
 }
 
-/* The progress column scrolls with the conversation rather than running past it. */
+/* One page scroll surface: wheel/touch works over either column. */
 .discovery-sidebar {
-  position: sticky;
-  top: 18px;
-  max-height: calc(100vh - 36px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding-right: 2px;
+  position: static;
+  max-height: none;
+  overflow: visible;
+  overscroll-behavior: auto;
 }
 
 .discovery-sidebar::-webkit-scrollbar,
@@ -119,12 +124,12 @@
 .model-trigger {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  max-width: 320px;
-  padding: 7px 10px;
+  gap: 6px;
+  max-width: min(270px, 100%);
+  padding: 5px 8px;
   border-radius: 9px;
   border: 1px solid var(--line-2);
-  background: var(--paper-2);
+  background: transparent;
   color: var(--ink);
   font-size: 12px;
   font-weight: 560;
@@ -173,17 +178,16 @@
 }
 
 .model-menu {
-  position: absolute;
-  bottom: calc(100% + 9px);
-  left: 0;
-  z-index: 40;
-  width: min(330px, calc(100vw - 48px));
-  padding: 8px;
-  border-radius: 13px;
-  background: #131c27;
-  border: 1px solid #263241;
-  box-shadow: 0 26px 60px -20px rgba(4, 10, 18, 0.75);
-  animation: fade-up 0.16s var(--ease-out) both;
+  position: fixed;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  width: min(280px, calc(100vw - 24px));
+  padding: 5px;
+  border-radius: 10px;
+  background: var(--paper);
+  border: 1px solid var(--line-2);
+  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.14);
 }
 
 .model-menu-label {
@@ -192,13 +196,15 @@
   font-weight: 700;
   letter-spacing: 0.17em;
   text-transform: uppercase;
-  color: #7d8798;
+  color: var(--muted);
+  flex-shrink: 0;
 }
 
 .model-menu-scroll {
   display: grid;
   gap: 2px;
-  max-height: 288px;
+  max-height: 210px;
+  min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -209,7 +215,7 @@
 
 .model-menu-scroll::-webkit-scrollbar-thumb {
   border-radius: 8px;
-  background: #2c3a4b;
+  background: var(--line-2);
 }
 
 .model-option {
@@ -218,11 +224,11 @@
   justify-content: space-between;
   gap: 12px;
   width: 100%;
-  padding: 9px 11px;
+  padding: 8px 9px;
   border: 0;
   border-radius: 9px;
   background: transparent;
-  color: #e7ecf3;
+  color: var(--ink);
   text-align: left;
   cursor: pointer;
   transition: background var(--t) var(--ease);
@@ -230,7 +236,7 @@
 
 .model-option:hover:not(:disabled),
 .model-option:focus-visible {
-  background: #1e2937;
+  background: var(--paper-2);
 }
 
 .model-option:disabled {
@@ -248,19 +254,23 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 580;
-  color: #f4f7fa;
+  color: var(--ink);
 }
 
 .model-option small {
   font-size: 11px;
   line-height: 1.5;
-  color: #8b95a6;
+  color: var(--muted);
 }
 
 .model-option.selected strong {
-  color: #fff;
+  color: var(--orange-600);
+}
+
+.model-option.selected {
+  background: var(--cream-2);
 }
 
 .model-option > svg {
@@ -270,18 +280,19 @@
 
 .model-effort-row {
   margin-top: 6px;
-  padding-top: 12px;
-  border-top: 1px solid #253140;
+  padding-top: 9px;
+  border-top: 1px solid var(--line);
   border-radius: 0 0 9px 9px;
+  flex-shrink: 0;
 }
 
-.model-effort-value {
+.model-option > .model-effort-value {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   font-size: 12px;
   font-weight: 560;
-  color: #9aa4b4;
+  color: var(--muted);
   flex-shrink: 0;
 }
 
@@ -293,7 +304,7 @@
   padding: 7px 10px 9px;
   border: 0;
   background: transparent;
-  color: #9aa4b4;
+  color: var(--muted);
   font-size: 11px;
   font-weight: 640;
   letter-spacing: 0.06em;
@@ -302,16 +313,16 @@
 }
 
 .model-menu-back:hover {
-  color: #fff;
+  color: var(--ink);
 }
 
 .model-menu-hint {
   padding: 9px 11px 5px;
   margin-top: 4px;
-  border-top: 1px solid #253140;
+  border-top: 1px solid var(--line);
   font-size: 11px;
   line-height: 1.55;
-  color: #7d8798;
+  color: var(--muted);
 }
 
 @media (max-width: 640px) {
@@ -319,8 +330,12 @@
     max-width: 100%;
   }
 
-  .model-menu {
-    left: auto;
-    right: 0;
+  .composer {
+    margin: 0 14px;
+    padding: 12px;
+  }
+
+  .messages {
+    padding: 18px 14px;
   }
 }

@@ -39,9 +39,10 @@ def test_all_keys_exhausted_is_safe_and_bounded(setup, monkeypatch):
     ai, calls = make_pool(setup, monkeypatch, {i: api_error(429, 'primary-secret') for i in range(6)}, count=6)
     with pytest.raises(AppError) as result:
         ai.generate_structured('Decide', {}, Necessity)
-    assert result.value.code == 'provider_unavailable'
+    assert result.value.code == 'rate_limited'
+    assert result.value.status == 429
     assert 'primary-secret' not in result.value.message
-    assert sum(c.call_count for c in calls) == 4
+    assert sum(c.call_count for c in calls) == 6
 
 
 def test_missing_model_rotates_keys_because_projects_differ(setup, monkeypatch):
@@ -90,7 +91,7 @@ def test_cooldown_expires_and_retry_info_is_honored(setup, monkeypatch):
     failure = api_error(429, details=[{'@type': 'type.googleapis.com/google.rpc.RetryInfo', 'retryDelay': '120s'}])
     ai, calls = make_pool(setup, monkeypatch, {0: failure})
     ai.generate_structured('Decide', {}, Necessity)
-    assert ai._cooldowns[0] == 220
+    assert ai._model_cooldowns[0, ai.settings.gemini_model] == 220
     calls[0].side_effect = None
     clock[0] = 221
     ai.generate_structured('Decide', {}, Necessity)
@@ -104,3 +105,35 @@ def test_keys_deduplicated_and_backup_only_health(setup, monkeypatch):
     response = setup[0].get('/api/health')
     assert response.json()['gemini_configured']
     assert 'only-backup-secret' not in response.text
+
+
+def test_ninth_backup_keeps_the_selected_model(setup, monkeypatch):
+    ai, calls = make_pool(setup, monkeypatch, {i: api_error(429) for i in range(8)}, count=9)
+    ai.settings = ai.settings.model_copy(update={'gemini_model': 'gemini-2.5-pro'})
+    ai.generate_structured('Decide', {}, Necessity)
+    assert all(call.call_count == 1 for call in calls)
+    assert all(call.call_args.kwargs['model'] == 'gemini-2.5-pro' for call in calls)
+
+
+def test_quota_cooldowns_are_model_specific_and_never_expose_secrets(setup, monkeypatch):
+    ai, calls = make_pool(setup, monkeypatch, {0: api_error(429)}, count=1)
+    original = ai.settings.gemini_model
+    with pytest.raises(AppError):
+        ai.generate_structured('Decide', {}, Necessity)
+    state = ai.availability(original)
+    assert state['status'] == 'rate_limited'
+    assert state['available_connections'] == 0
+    assert 1 <= state['retry_after_seconds'] <= 60
+    assert state['remaining_requests'] is state['request_limit'] is state['reset_at'] is None
+    assert 'secret' not in str(state)
+    ai.settings = ai.settings.model_copy(update={'gemini_model': 'gemini-2.5-pro'})
+    calls[0].side_effect = None
+    ai.generate_structured('Decide', {}, Necessity)
+    assert ai.availability()['available_connections'] == 1
+
+
+def test_mixed_failures_do_not_misreport_missing_model(setup, monkeypatch):
+    ai, _ = make_pool(setup, monkeypatch, {0: api_error(404), 1: api_error(503)})
+    with pytest.raises(AppError) as result:
+        ai.generate_structured('Decide', {}, Necessity)
+    assert result.value.code == 'provider_unavailable'

@@ -38,7 +38,7 @@ def test_discovery_to_blueprint_end_to_end(setup, project):
     assert response.status_code == 200
     assert response.json()['analysis_ready']
     assert client.get(f'/api/projects/{project}/messages').json()[-1]['role'] == 'assistant'
-    assert client.post(f'/api/projects/{project}/analysis/run').status_code == 202
+    assert response.json()['stage'] == 'SYSTEM_ANALYSIS'
     p = client.get(f'/api/projects/{project}').json()
     assert p['status'] == 'BLUEPRINT_READY' and p['busy'] is False
     bp = client.get(f'/api/projects/{project}/blueprint').json()
@@ -51,15 +51,14 @@ def test_discovery_to_blueprint_end_to_end(setup, project):
     from app.repositories.store import Store
     assert Store(store.db).project(project, 'local-workspace')['status'] == 'BLUEPRINT_READY'
     client.post(f'/api/projects/{project}/chat', json={'content': 'Correction: the data now has many exceptional cases.'})
-    assert client.get(f'/api/projects/{project}/blueprint').json() is None
-    assert client.get(f'/api/projects/{project}/analysis').json() is None
+    assert client.get(f'/api/projects/{project}/blueprint').json()['version'] == 2
+    assert client.get(f'/api/projects/{project}/analysis').json() is not None
 
 
 def test_red_team_bounded_and_findings_retained(setup, project):
     client, _, ai, _ = setup
     ai.always_revise = True
     client.post(f'/api/projects/{project}/discovery/next')
-    client.post(f'/api/projects/{project}/analysis/run')
     bp = client.get(f'/api/projects/{project}/blueprint').json()['content']
     assert bp['red_team_cycle'] == 3
     assert len(bp['red_team_history']) == 3
@@ -111,7 +110,8 @@ def test_document_processing_and_delete(setup, project):
     assert d['status'] == 'processed' and d['filename'] == 'workflow.txt'
     assert d['summary'] and d['facts']
     assert store.db.document_chunks.count_documents({'project_id': project}) > 0
-    assert ai.calls == ['DocumentSummary', 'Discovery']
+    assert ai.calls[:2] == ['DocumentSummary', 'Discovery']
+    assert store.project(project, 'local-workspace')['status'] == 'BLUEPRINT_READY'
     assert client.delete(f'/api/projects/{project}/documents/{did}').status_code == 200
     assert store.db.document_chunks.count_documents({'project_id': project}) == 0
     assert client.get(f'/api/projects/{project}').json()['discovery'] is None
