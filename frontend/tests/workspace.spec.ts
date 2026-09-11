@@ -205,7 +205,7 @@ test("service errors stay user-facing and removed settings redirect", async ({
   ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Continue locally" }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,

@@ -51,8 +51,8 @@ export function SiteHeader() {
           <Link href="/login" className="nav-signin">
             <T text={"Sign in"} />
           </Link>
-          <Link href="/dashboard" className="button button-dark button-sm">
-            <T text={"Open workspace "} />
+          <Link href="/signup" className="button button-dark button-sm">
+            <T text={"Sign up"} />
             <ArrowUpRight size={15} />
           </Link>
         </div>
@@ -81,11 +81,11 @@ export function SiteHeader() {
             <T text={"Sign in"} />
           </Link>
           <Link
-            href="/dashboard"
+            href="/signup"
             className="button button-dark"
             onClick={() => setOpen(false)}
           >
-            <T text={"Open workspace "} />
+            <T text={"Sign up"} />
             <ArrowUpRight size={15} />
           </Link>
         </nav>

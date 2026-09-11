@@ -13,12 +13,18 @@ test("sign-up, team administration, seven deliverables, revisions, approval, and
   await page
     .getByLabel("Password", { exact: true })
     .fill("browser-test-password-123");
-  await page.getByLabel("Confirm password").fill("does-not-match");
+  await page
+    .getByLabel("Confirm password", { exact: true })
+    .fill("does-not-match");
   await page
     .getByRole("button", { name: "Create account", exact: true })
     .click();
-  await expect(page.locator(".auth-error")).toContainText("matching passwords");
-  await page.getByLabel("Confirm password").fill("browser-test-password-123");
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(
+    "matching passwords",
+  );
+  await page
+    .getByLabel("Confirm password", { exact: true })
+    .fill("browser-test-password-123");
   await page
     .getByRole("button", { name: "Create account", exact: true })
     .click();

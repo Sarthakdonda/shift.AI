@@ -116,6 +116,27 @@ The server verifies the token's signature, audience, expiry, verified email, and
 
 When `GOOGLE_CLIENT_ID` is empty, `ALLOW_LOCAL_ACCESS=true` permits a single local workspace **only for loopback requests**. Configuring Google disables this fallback. Local projects and signed-in projects stay separate; they are not automatically transferred between accounts. Set `ALLOW_LOCAL_ACCESS=false` to require authentication even before setup is complete.
 
+The **Continue with Google** button is always visible on `/login` and `/signup`. Until a client ID is configured it stays disabled with a short note, and email accounts keep working.
+
+## Forgot password
+
+`/login` links to `/forgot-password`. The server stores only a SHA-256 hash of a single-use token, expires it after `PASSWORD_RESET_MINUTES` (30 by default), answers every request identically so the endpoint cannot reveal which emails have accounts, and increments the account's session version on success, which signs out existing devices.
+
+To deliver reset emails, set these values in **`backend/.env`** and restart the backend:
+
+```dotenv
+APP_BASE_URL=http://localhost:3000
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USERNAME=your_smtp_user
+SMTP_PASSWORD=your_smtp_password
+SMTP_FROM=no-reply@your-domain.example
+```
+
+Delivery uses the Python standard library, so no extra dependency is required. Port 465 switches to implicit TLS; other ports use STARTTLS unless `SMTP_STARTTLS=false`. Health reports `email_configured`.
+
+**Before SMTP is configured**, the reset link is returned in the response and shown on the page **only for loopback requests**, so local setup can finish a reset without email. Set `PASSWORD_RESET_LOCAL_LINK=false` to disable that fallback, and configure SMTP before exposing the app beyond your machine.
+
 ## Working through a project
 
 1. Create a project with a name and business problem.

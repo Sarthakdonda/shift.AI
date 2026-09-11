@@ -26,3 +26,26 @@ export async function verifySession() {
     throw new Error("We couldn’t verify your sign-in. Please try again.");
   return user;
 }
+
+export type ResetRequest = {
+  ok: boolean;
+  message: string;
+  delivery: "email" | "local_link" | "none";
+  reset_link?: string;
+  expires_in_minutes?: number;
+};
+
+export function requestPasswordReset(email: string) {
+  return post<ResetRequest>("/auth/password/forgot", { email });
+}
+
+export function checkResetToken(token: string) {
+  return post<{ ok: boolean }>("/auth/password/verify", { token });
+}
+
+export function completePasswordReset(token: string, password: string) {
+  return post<{ ok: boolean; email: string }>("/auth/password/reset", {
+    token,
+    password,
+  });
+}

@@ -13,10 +13,17 @@ from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 from app.repositories.store import get_store, now
 from app.core.passwords import hash_password, verify_password
+from app.core.mailer import email_configured, reset_email, send_email
 from app.core.config import get_settings
 from app.core.errors import AppError
 
 router = APIRouter(prefix='/api/auth', tags=['Authentication'])
+LOOPBACK = ('127.0.0.1', '::1', 'testclient')
+RESET_SENT = 'If that email has an account, a reset link is on its way. Check your inbox and spam folder.'
+
+
+def local_request(request: Request):
+    return bool(request.client and request.client.host in LOOPBACK)
 
 
 def signer():
@@ -46,7 +53,7 @@ def user(request: Request):
             raise BadSignature('Unknown session')
         except (BadSignature, SignatureExpired):
             raise AppError('Your session has expired. Please sign in again.', 401) from None
-    if not s.google_client_id and s.allow_local_access and request.client and request.client.host in ('127.0.0.1', '::1', 'testclient'):
+    if not s.google_client_id and s.allow_local_access and local_request(request):
         return {'id': 'local-workspace', 'name': 'Local workspace', 'email': '', 'local': True}
     raise AppError('Sign in to access your workspace.', 401, 'authentication_required')
 
@@ -61,9 +68,8 @@ def set_session(response, account):
                         secure=get_settings().cookie_secure, samesite='lax', max_age=60 * 60 * 24 * 7)
 
 
-class EmailLogin(BaseModel):
+class EmailAddress(BaseModel):
     email: str = Field(min_length=3, max_length=254)
-    password: str = Field(min_length=1, max_length=128)
 
     @field_validator('email')
     @classmethod
@@ -72,6 +78,10 @@ class EmailLogin(BaseModel):
         if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', value):
             raise ValueError('Enter a valid email address.')
         return value
+
+
+class EmailLogin(EmailAddress):
+    password: str = Field(min_length=1, max_length=128)
 
 
 class EmailSignup(EmailLogin):
@@ -129,6 +139,84 @@ def email_login(body: EmailLogin, request: Request, response: Response):
 @router.get('/me')
 def me(request: Request):
     return user(request)
+
+
+class ResetToken(BaseModel):
+    token: str = Field(min_length=20, max_length=256)
+
+
+class PasswordReset(ResetToken):
+    password: str = Field(min_length=12, max_length=128)
+
+
+def token_digest(token):
+    return hashlib.sha256(token.strip().encode()).hexdigest()
+
+
+def reset_indexes(db):
+    db.password_resets.create_index('token_hash', unique=True)
+    db.password_resets.create_index('expires_at', expireAfterSeconds=0)
+
+
+def reset_base_url(request: Request):
+    origin = (request.headers.get('origin') or '').rstrip('/')
+    return origin if origin in get_settings().origins else get_settings().app_base_url.rstrip('/')
+
+
+@router.post('/password/forgot')
+def forgot_password(body: EmailAddress, request: Request):
+    """Always answers the same way, so the endpoint cannot be used to discover accounts."""
+    s = get_settings()
+    local_fallback = s.password_reset_local_link and local_request(request)
+    if not email_configured() and not local_fallback:
+        raise AppError('Password reset email is not configured. Set SMTP_HOST, SMTP_FROM, and SMTP credentials in backend/.env.', 503, 'email_unavailable')
+    limit_auth(request, body.email)
+    db = get_store().db
+    record = db.users.find_one({'email': body.email, 'disabled': {'$ne': True}})
+    if not record:
+        return {'ok': True, 'delivery': 'email' if email_configured() else 'none', 'message': RESET_SENT}
+    reset_indexes(db)
+    token = secrets.token_urlsafe(32)
+    minutes = max(5, min(s.password_reset_minutes, 240))
+    db.password_resets.delete_many({'user_id': str(record['_id'])})
+    db.password_resets.insert_one({'user_id': str(record['_id']), 'email': record['email'], 'token_hash': token_digest(token),
+                                   'created_at': now(), 'expires_at': now() + timedelta(minutes=minutes), 'used_at': None})
+    link = f'{reset_base_url(request)}/reset-password?token={token}'
+    if email_configured():
+        send_email(record['email'], *reset_email(record['name'], link, minutes))
+        return {'ok': True, 'delivery': 'email', 'message': RESET_SENT}
+    return {'ok': True, 'delivery': 'local_link', 'reset_link': link, 'expires_in_minutes': minutes,
+            'message': 'Email sending is not configured yet, so the reset link is shown here for this local workspace.'}
+
+
+def open_reset(db, token, claim=False):
+    query = {'token_hash': token_digest(token), 'used_at': None, 'expires_at': {'$gt': now()}}
+    record = db.password_resets.find_one_and_update(query, {'$set': {'used_at': now()}}) if claim else db.password_resets.find_one(query)
+    if not record:
+        raise AppError('This password reset link has expired or was already used. Request a new one.', 400, 'reset_invalid')
+    return record
+
+
+@router.post('/password/verify')
+def verify_reset_token(body: ResetToken, request: Request):
+    open_reset(get_store().db, body.token)
+    return {'ok': True}
+
+
+@router.post('/password/reset')
+def reset_password(body: PasswordReset, request: Request, response: Response):
+    """Single-use token, new hash, and every existing session for the account is revoked."""
+    limit_auth(request, 'reset:' + token_digest(body.token)[:32])
+    db = get_store().db
+    record = open_reset(db, body.token, claim=True)
+    account = db.users.find_one({'_id': ObjectId(record['user_id']), 'disabled': {'$ne': True}})
+    if not account:
+        raise AppError('This password reset link is no longer valid. Request a new one.', 400, 'reset_invalid')
+    db.users.update_one({'_id': account['_id']}, {'$set': {'password_hash': hash_password(body.password), 'password_changed_at': now()},
+                                                  '$inc': {'session_version': 1}})
+    db.password_resets.delete_many({'user_id': record['user_id']})
+    response.delete_cookie('shift_session')
+    return {'ok': True, 'email': account['email']}
 
 
 @router.get('/nonce')

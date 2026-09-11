@@ -1,469 +1,235 @@
 "use client";
-import { T } from "@/components/locale";
 
 import Link from "next/link";
-import Script from "next/script";
-import { useEffect, useRef, useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useCallback, useState, type FormEvent } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { ArrowRight, Check, LoaderCircle, LockKeyhole } from "lucide-react";
+import { T } from "@/components/locale";
 import {
-  ArrowLeft,
-  ArrowRight,
-  ArrowUpRight,
-  Check,
-  Eye,
-  EyeOff,
-  FileCheck2,
-  LoaderCircle,
-  LockKeyhole,
-  Mail,
-  ScanLine,
-  ShieldCheck,
-  Sparkles,
-} from "lucide-react";
-import { Logo } from "@/components/layout/logo";
-import { LanguagePicker } from "@/components/locale";
+  AccessFrame,
+  accessStyles as styles,
+} from "@/components/auth/access-frame";
+import { Field } from "@/components/auth/field";
+import { GoogleAccess } from "@/components/auth/google-access";
 import { useSession } from "@/components/providers";
 import { useToast } from "@/components/ui/feedback";
-import { api, post } from "@/lib/api";
-import { signUpWithEmail, signInWithEmail, verifySession } from "@/lib/auth";
+import { signInWithEmail, signUpWithEmail } from "@/lib/auth";
 
-declare global {
-  interface Window {
-    google?: {
-      accounts: {
-        id: {
-          initialize: (o: {
-            client_id: string;
-            nonce: string;
-            callback: (r: { credential: string }) => void;
-          }) => void;
-          renderButton: (el: HTMLElement, o: object) => void;
-        };
-      };
-    };
-  }
-}
 export default function Login() {
-  const { user, health, loading, refresh } = useSession();
-  const router = useRouter();
   const signup = usePathname() === "/signup";
-  const [name, setName] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const router = useRouter();
+  const { user, loading, refresh } = useSession();
   const toast = useToast();
-  const ref = useRef<HTMLDivElement>(null);
-  const [ready, setReady] = useState(false);
-  const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const clientId =
-    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || health?.google_client_id;
-  const googleEnabled = !!health?.google_configured && !!clientId;
-  const emailError =
-    submitted && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
-      ? "Enter a valid email address."
+  const [confirmation, setConfirmation] = useState("");
+  const showError = useCallback((message: string) => setError(message), []);
+  const changeBusy = useCallback((value: boolean) => setBusy(value), []);
+  const nameError =
+    signup && name.trim().length < 2
+      ? "Enter your full name (at least 2 characters)."
       : "";
-  const passwordError = submitted && !password ? "Enter your password." : "";
-  useEffect(() => {
-    if (!ready || !googleEnabled || !clientId || !ref.current || !window.google)
+  const emailError = !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
+    ? "Enter a valid email address."
+    : "";
+  const passwordError = !password
+    ? "Enter your password."
+    : signup && password.length < 12
+      ? "Use at least 12 characters for your password."
+      : "";
+  const confirmationError =
+    signup && (!confirmation || confirmation !== password)
+      ? "Enter matching passwords to continue."
+      : "";
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busy) return;
+    setSubmitted(true);
+    setError("");
+    const invalid = [
+      [nameError, "signup-name"],
+      [emailError, "login-email"],
+      [passwordError, "login-password"],
+      [confirmationError, "confirm-password"],
+    ].find(([message]) => message);
+    if (invalid) {
+      document.getElementById(invalid[1])?.focus();
       return;
-    let active = true;
-    api<{ nonce: string }>("/auth/nonce", {
-      signal: AbortSignal.timeout(15000),
-    })
-      .then(({ nonce }) => {
-        if (!active || !ref.current) return;
-        window.google?.accounts.id.initialize({
-          client_id: clientId,
-          nonce,
-          callback: async ({ credential }) => {
-            setBusy(true);
-            setError("");
-            try {
-              await post("/auth/google", { credential });
-              await verifySession();
-              await refresh();
-              toast("You’re signed in. Welcome to your workspace.");
-              router.replace("/dashboard");
-            } catch (e) {
-              setError((e as Error).message);
-            } finally {
-              setBusy(false);
-            }
-          },
-        });
-        window.google?.accounts.id.renderButton(ref.current, {
-          theme: "outline",
-          size: "large",
-          width: Math.min(ref.current.clientWidth, 400),
-          text: "continue_with",
-          shape: "rectangular",
-        });
-      })
-      .catch((e) => {
-        if (active) setError(e.message);
-      });
-    return () => {
-      active = false;
-    };
-  }, [ready, googleEnabled, clientId, refresh, router, toast]);
+    }
+    setBusy(true);
+    try {
+      if (signup) await signUpWithEmail(name.trim(), email.trim(), password);
+      else await signInWithEmail(email.trim(), password);
+      await refresh();
+      setPassword("");
+      setConfirmation("");
+      toast(
+        signup
+          ? "Your account is ready. Welcome to shift.AI."
+          : "Welcome back to shift.AI.",
+      );
+      router.replace("/dashboard");
+    } catch (error) {
+      setError((error as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
-    <div className="auth-page">
-      <aside className="auth-story">
-        <Logo light />
-        <div className="auth-story-copy">
-          <span className="eyebrow">
-            <T text={"GOOD THINKING STARTS HERE"} />
+    <AccessFrame
+      title={signup ? "Create your account." : "Welcome back."}
+      description={
+        signup
+          ? "A fresh perspective starts here."
+          : "Sign in and pick up where you left off."
+      }
+      switchPrompt={signup ? "Already have an account?" : "New to shift.AI?"}
+      switchLabel={signup ? "Sign in" : "Sign up"}
+      switchHref={signup ? "/login" : "/signup"}
+    >
+      {user && !user.local ? (
+        <div className={styles.signedIn}>
+          <span className={styles.check}>
+            <Check size={22} />
           </span>
-          <h1>
-            <T text={"A fresh perspective."} /> <br />
-            <T text={"A clearer "} />
-            <span>
-              <T text={"way forward."} />
-            </span>
-          </h1>
           <p>
-            <T text={"One space to explore your challenges,"} />
-            <br />
-            <T text={"connect the dots, and make your next move."} />
+            <T text="Signed in as" /> <strong>{user.name}</strong>
           </p>
-        </div>
-        <div
-          className="auth-illustration"
-          aria-label="From your challenge to a reviewed blueprint"
-        >
-          <div className="auth-orbit" aria-hidden />
-          <div className="auth-floating auth-question">
-            <span className="auth-illustration-icon">
-              <Sparkles size={20} />
-            </span>
-            <div>
-              <small>
-                <T text={"START WITH A QUESTION"} />
-              </small>
-              <strong>
-                <T text={"What could work better?"} />
-              </strong>
-            </div>
-            <span className="auth-card-dot" />
-          </div>
-          <div className="auth-flow-line" aria-hidden />
-          <div className="auth-floating auth-insight">
-            <span className="auth-illustration-icon">
-              <ScanLine size={20} />
-            </span>
-            <div>
-              <small>
-                <T text={"FIND YOUR CLARITY"} />
-              </small>
-              <strong>
-                <T text={"See the bigger picture."} />
-              </strong>
-              <div className="auth-mini-bars" aria-hidden>
-                <i />
-                <i />
-                <i />
-                <i />
-                <i />
-                <i />
-                <i />
-              </div>
-            </div>
-          </div>
-          <div className="auth-flow-line second" aria-hidden />
-          <div className="auth-floating auth-plan">
-            <span className="auth-illustration-icon">
-              <FileCheck2 size={20} />
-            </span>
-            <div>
-              <small>
-                <T text={"MAKE YOUR NEXT MOVE"} />
-              </small>
-              <strong>
-                <T text={"A plan you can build on."} />
-              </strong>
-            </div>
-            <Check size={16} />
-          </div>
-        </div>
-        <div className="auth-story-footer">
-          <span className="tiny-orange" />
-          <T text={" Problem first. Possibility next."} />
-          <span>
-            <T text={"shift.AI"} />
-          </span>
-        </div>
-      </aside>
-      <main className="auth-main" id="main">
-        <div className="auth-top">
-          <LanguagePicker />
-          <Link href="/" className="auth-back">
-            <ArrowLeft size={15} />
-            <T text={" Back to home"} />
+          <Link href="/dashboard" className={styles.submit}>
+            <T text="Go to your projects" />
+            <ArrowRight size={17} aria-hidden="true" />
           </Link>
-          <span>
-            <T text={"YOUR STRATEGY WORKSPACE"} />
-          </span>
         </div>
-        <div className="auth-card enter">
-          <span className="auth-form-icon">
-            <LockKeyhole size={23} strokeWidth={1.6} />
-          </span>
-          <h2>
-            <T text={signup ? "Create your workspace." : "Welcome back."} />
-          </h2>
-          <p className="auth-description">
-            <T text={"A little clarity is just a sign-in away."} />
-          </p>
-          {user && !user.local ? (
-            <div className="auth-signed-in">
-              <span className="account-avatar">
-                {user.name?.charAt(0) || "S"}
-              </span>
-              <p>
-                <T text={"Signed in as "} />
-                <strong>{user.name}</strong>
+      ) : (
+        <>
+          <form
+            className={styles.form}
+            onSubmit={submit}
+            noValidate
+            aria-busy={busy}
+          >
+            {signup && (
+              <Field
+                id="signup-name"
+                name="name"
+                label="Full name"
+                autoComplete="name"
+                placeholder="Your full name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                maxLength={100}
+                disabled={busy}
+                error={submitted ? nameError : ""}
+                required
+              />
+            )}
+            <Field
+              id="login-email"
+              name="email"
+              label="Email address"
+              type="email"
+              autoComplete="username"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              maxLength={254}
+              disabled={busy}
+              error={submitted ? emailError : ""}
+              required
+            />
+            <Field
+              id="login-password"
+              name="password"
+              label="Password"
+              type="password"
+              autoComplete={signup ? "new-password" : "current-password"}
+              placeholder={signup ? "Create a password" : "Enter your password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              maxLength={128}
+              disabled={busy}
+              error={submitted ? passwordError : ""}
+              hint={
+                signup
+                  ? "At least 12 characters. Try a memorable passphrase."
+                  : undefined
+              }
+              action={
+                signup ? undefined : (
+                  <Link href="/forgot-password" className={styles.fieldAction}>
+                    <T text="Forgot password?" />
+                  </Link>
+                )
+              }
+              required
+            />
+            {signup && (
+              <Field
+                id="confirm-password"
+                name="confirmPassword"
+                label="Confirm password"
+                type="password"
+                autoComplete="new-password"
+                placeholder="Enter your password again"
+                value={confirmation}
+                onChange={(e) => setConfirmation(e.target.value)}
+                maxLength={128}
+                disabled={busy}
+                error={submitted ? confirmationError : ""}
+                required
+              />
+            )}
+            {error && (
+              <p className={styles.error} role="alert">
+                {error}
               </p>
-              <Link href="/dashboard" className="button button-primary">
-                <T text={"Continue to workspace "} />
-                <ArrowRight size={16} />
-              </Link>
-            </div>
-          ) : (
-            <>
-              {googleEnabled ? (
-                <>
-                  <Script
-                    src="https://accounts.google.com/gsi/client"
-                    onReady={() => setReady(true)}
-                    onError={() =>
-                      setError(
-                        "Google sign-in couldn’t load. Please refresh the page to try again.",
-                      )
-                    }
-                  />
-                  <div
-                    className={`auth-google ${busy ? "is-busy" : ""}`}
-                    ref={ref}
-                  />
-                  {!ready && (
-                    <div className="auth-google-loading">
-                      <LoaderCircle size={16} className="spin" />
-                      <T text={" Loading Google sign-in…"} />
-                    </div>
-                  )}
-                </>
-              ) : null}
-              {googleEnabled && (
-                <div className="auth-divider">
-                  <span />
-                  <T text={"or continue with email"} />
-                  <span />
-                </div>
+            )}
+            <button
+              className={styles.submit}
+              type="submit"
+              disabled={busy || loading}
+            >
+              <T
+                text={
+                  busy
+                    ? signup
+                      ? "Creating your account…"
+                      : "Signing in…"
+                    : signup
+                      ? "Create account"
+                      : "Sign in"
+                }
+              />
+              {busy ? (
+                <LoaderCircle size={17} className="spin" aria-hidden="true" />
+              ) : (
+                <ArrowRight size={17} aria-hidden="true" />
               )}
-              <form
-                noValidate
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  if (busy) return;
-                  setSubmitted(true);
-                  setError("");
-                  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-                    document.getElementById("login-email")?.focus();
-                    return;
-                  }
-                  if (!password) {
-                    document.getElementById("login-password")?.focus();
-                    return;
-                  }
-                  if (
-                    signup &&
-                    (name.trim().length < 2 ||
-                      password.length < 12 ||
-                      password !== confirmPassword)
-                  ) {
-                    setError(
-                      "Enter your name and matching passwords of at least 12 characters.",
-                    );
-                    return;
-                  }
-                  setBusy(true);
-                  try {
-                    if (signup)
-                      await signUpWithEmail(
-                        name.trim(),
-                        email.trim(),
-                        password,
-                      );
-                    else await signInWithEmail(email.trim(), password);
-                    await refresh();
-                    setPassword("");
-                    toast("You’re signed in. Welcome to your workspace.");
-                    router.replace("/dashboard");
-                  } catch (e) {
-                    setError((e as Error).message);
-                  } finally {
-                    setBusy(false);
-                  }
-                }}
-              >
-                {signup && (
-                  <>
-                    <label htmlFor="signup-name">
-                      <T text={"Full name"} />
-                    </label>
-                    <div className="auth-input">
-                      <input
-                        id="signup-name"
-                        autoComplete="name"
-                        value={name}
-                        maxLength={100}
-                        onChange={(e) => setName(e.target.value)}
-                        disabled={busy}
-                      />
-                    </div>
-                  </>
-                )}
-                <label htmlFor="login-email">
-                  <T text={"Email address"} />
-                </label>
-                <div className={`auth-input ${emailError ? "invalid" : ""}`}>
-                  <Mail size={17} />
-                  <input
-                    id="login-email"
-                    name="email"
-                    type="email"
-                    autoComplete="username"
-                    placeholder="you@company.com"
-                    value={email}
-                    disabled={busy}
-                    onChange={(e) => setEmail(e.target.value)}
-                    aria-invalid={!!emailError}
-                    aria-describedby={emailError ? "email-error" : undefined}
-                  />
-                </div>
-                {emailError && (
-                  <p className="field-error" id="email-error" role="alert">
-                    {emailError}
-                  </p>
-                )}
-                <label htmlFor="login-password">
-                  <T text={"Password"} />
-                </label>
-                <div className={`auth-input ${passwordError ? "invalid" : ""}`}>
-                  <LockKeyhole size={17} />
-                  <input
-                    id="login-password"
-                    name="password"
-                    type={showPassword ? "text" : "password"}
-                    autoComplete={signup ? "new-password" : "current-password"}
-                    placeholder="Enter your password"
-                    value={password}
-                    disabled={busy}
-                    onChange={(e) => setPassword(e.target.value)}
-                    aria-invalid={!!passwordError}
-                    aria-describedby={
-                      passwordError ? "password-error" : undefined
-                    }
-                  />
-                  <button
-                    type="button"
-                    aria-label={
-                      showPassword ? "Hide password" : "Show password"
-                    }
-                    aria-pressed={showPassword}
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
-                  </button>
-                </div>
-                {passwordError && (
-                  <p className="field-error" id="password-error" role="alert">
-                    {passwordError}
-                  </p>
-                )}
-                {signup && (
-                  <>
-                    <p className="muted small">
-                      <T
-                        text={
-                          "Use at least 12 characters. A memorable passphrase works well."
-                        }
-                      />
-                    </p>
-                    <label htmlFor="confirm-password">
-                      <T text={"Confirm password"} />
-                    </label>
-                    <div className="auth-input">
-                      <input
-                        id="confirm-password"
-                        type="password"
-                        autoComplete="new-password"
-                        value={confirmPassword}
-                        maxLength={128}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        disabled={busy}
-                      />
-                    </div>
-                  </>
-                )}
-                {error && (
-                  <p className="auth-error" role="alert">
-                    {error}
-                  </p>
-                )}
-                <button
-                  className="button button-primary auth-submit"
-                  type="submit"
-                  disabled={busy || loading}
-                >
-                  {busy ? <LoaderCircle size={17} className="spin" /> : null}
-                  <T
-                    text={
-                      busy
-                        ? "Please wait…"
-                        : signup
-                          ? "Create account"
-                          : "Sign in to workspace"
-                    }
-                  />
-                  <ArrowRight size={16} />
-                </button>
-              </form>
-              <p className="auth-availability">
-                {signup ? "Already have an account? " : "New to shift.AI? "}
-                <Link href={signup ? "/login" : "/signup"}>
-                  {signup ? "Sign in" : "Create an account"}
-                </Link>
-              </p>
-              {health?.local_access_enabled && (
-                <Link className="auth-local" href="/dashboard">
-                  <T text={"Continue locally "} />
-                  <ArrowUpRight size={14} />
-                </Link>
-              )}
-            </>
-          )}
-          <div className="auth-privacy">
-            <ShieldCheck size={15} />
-            <span>
-              <T text={"Your ideas. Your projects. Your workspace."} />
-            </span>
+            </button>
+          </form>
+          <div className={styles.divider}>
+            <span />
+            <T text="or" />
+            <span />
           </div>
-        </div>
-        <footer className="auth-footer">
-          <span>
-            © {new Date().getFullYear()}
-            <T text={" shift.AI"} />
-          </span>
-          <span>
-            <T text={"Clarity before complexity."} />
-          </span>
-        </footer>
-      </main>
-    </div>
+          <GoogleAccess
+            mode={signup ? "signup" : "signin"}
+            disabled={busy}
+            onError={showError}
+            onBusyChange={changeBusy}
+          />
+          <p className={styles.privateNote}>
+            <LockKeyhole size={13} aria-hidden="true" />
+            <T text="Your own account. Your own space to think." />
+          </p>
+        </>
+      )}
+    </AccessFrame>
   );
 }

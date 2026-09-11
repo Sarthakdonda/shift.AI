@@ -18,10 +18,21 @@ class Settings(BaseSettings):
     google_client_id: str = ''
     session_secret: str = ''
     cookie_secure: bool = False
-    allow_local_access: bool = True
+    allow_local_access: bool = False
     vector_search_enabled: bool = False
     vector_index_name: str = 'document_embeddings'
     embedding_model: str = 'gemini-embedding-001'
+    app_base_url: str = 'http://localhost:3000'
+    smtp_host: str = ''
+    smtp_port: int = 587
+    smtp_username: str = ''
+    smtp_password: str = ''
+    smtp_from: str = ''
+    smtp_from_name: str = 'shift.AI'
+    smtp_starttls: bool = True
+    password_reset_minutes: int = 30
+    # Without SMTP, show the reset link only to loopback callers so local setup can still finish a reset.
+    password_reset_local_link: bool = True
 
     @property
     def gemini_keys(self):

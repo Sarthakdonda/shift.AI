@@ -7,6 +7,7 @@ export type Health = {
   local_access_enabled: boolean;
   vector_search_configured: boolean;
   max_upload_mb: number;
+  email_configured: boolean;
 };
 export type User = { id: string; name: string; email: string; local: boolean };
 export type Fact = { category: string; fact: string; source: string };

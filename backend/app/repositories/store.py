@@ -32,6 +32,8 @@ class Store:
         self.db.generation_requests.create_index('expires_at', expireAfterSeconds=0)
         self.db.users.create_index('email', unique=True)
         self.db.auth_attempts.create_index('expires_at', expireAfterSeconds=0)
+        self.db.password_resets.create_index('token_hash', unique=True)
+        self.db.password_resets.create_index('expires_at', expireAfterSeconds=0)
         self.db.memberships.create_index([('workspace_id', 1), ('user_id', 1)], unique=True)
         self.db.integrations.create_index([('workspace_id', 1), ('provider', 1)], unique=True)
         self.db.invitations.create_index('token_hash', unique=True)

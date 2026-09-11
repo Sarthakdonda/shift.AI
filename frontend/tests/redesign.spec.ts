@@ -68,7 +68,7 @@ test("login validates inline, toggles password, and never fakes authentication",
     throw new Error("Native browser dialogs must not be used.");
   });
   await page.goto("/login");
-  const submit = page.getByRole("button", { name: "Sign in to workspace" });
+  const submit = page.getByRole("button", { name: "Sign in", exact: true });
   await expect(submit).toBeEnabled();
   await submit.click();
   await expect(page.getByText("Enter a valid email address.")).toBeVisible();
@@ -82,7 +82,7 @@ test("login validates inline, toggles password, and never fakes authentication",
   );
   await page.getByRole("button", { name: "Hide password" }).click();
   await submit.click();
-  await expect(page.locator(".auth-error")).toContainText(
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(
     "Email or password is incorrect.",
   );
   expect(credentialRequests).toBe(1);

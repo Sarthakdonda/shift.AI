@@ -9,6 +9,7 @@
 **/node_modules/
 **/.next/
 **/.next-e2e/
+**/.vercel/
 **/next-env.d.ts
 **/playwright-report/
 **/test-results/
