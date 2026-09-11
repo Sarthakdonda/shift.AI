@@ -184,13 +184,17 @@ class GeminiService:
         # Every configured connection can be tried; one shared repair allowance.
         budget = [max(4, len(self._keys) + 1)]
         thinking = self._thinking()
+        schema_config = ({'response_json_schema': schema.provider_json_schema()}
+                         if hasattr(schema, 'provider_json_schema') else {'response_schema': schema})
         for attempt in range(2):
             try:
-                result = self._request(lambda client: client.models.generate_content(model=self.settings.gemini_model, contents=prompt, config=types.GenerateContentConfig(system_instruction=POLICY, response_mime_type='application/json', response_schema=schema, temperature=0.2, max_output_tokens=16000, thinking_config=thinking)), budget)
+                result = self._request(lambda client: client.models.generate_content(model=self.settings.gemini_model, contents=prompt, config=types.GenerateContentConfig(system_instruction=POLICY, response_mime_type='application/json', **schema_config, temperature=0.2, max_output_tokens=16000, thinking_config=thinking)), budget)
                 return schema.model_validate_json(result.text or '')
-            except ValidationError:
+            except ValidationError as exc:
                 if attempt == 0:
-                    prompt += '\nYour previous response failed schema validation. Return a complete valid JSON object with all required fields, supported enums, and numeric bounds.'
+                    # Error messages/paths only: do not echo untrusted input values.
+                    problems = [{'field': '.'.join(map(str, e['loc'])), 'error': e['msg']} for e in exc.errors(include_input=False, include_url=False)][:15]
+                    prompt += '\nYour previous response failed schema validation. Return a complete valid JSON object with all required fields, supported enums, and numeric bounds. Repair: ' + json.dumps(problems)
                     continue
                 raise AppError('The AI response could not be validated. Your work is saved; please retry.', 502, 'invalid_ai_output') from None
             except AppError as exc:

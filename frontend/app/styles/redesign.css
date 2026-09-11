@@ -247,65 +247,6 @@
 .page-heading .button {
   font-size: 11px;
 }
-.dashboard-banner {
-  padding: 30px;
-  grid-template-columns: 1.2fr 1fr;
-  gap: 20px;
-  border-radius: 12px;
-  background:
-    radial-gradient(ellipse at 100% 110%, #79513266, transparent 60%), #172330;
-  box-shadow: none;
-}
-.dashboard-banner::after {
-  background-size: 19px 19px;
-  opacity: 0.5;
-}
-.dashboard-banner h2 {
-  font-size: 25px;
-  line-height: 1.24;
-  font-weight: 500;
-  letter-spacing: -0.035em;
-}
-.dashboard-banner > div > p {
-  font-size: 11px;
-  max-width: 38ch;
-  margin-bottom: 21px;
-  color: #a3adb8;
-}
-.dashboard-banner .eyebrow {
-  font-size: 8px;
-  color: #d49a6e;
-}
-.banner-diagram {
-  padding: 15px 0 15px 20px;
-}
-.banner-diagram > div {
-  border-radius: 9px;
-  padding: 21px 6px;
-  transform: rotate(-4deg);
-  background: #ffffff06;
-  border: 1px solid #ffffff17;
-}
-.banner-diagram > div:nth-of-type(2) {
-  transform: translateY(-18px) rotate(3deg);
-}
-.banner-diagram span {
-  font-size: 9px;
-}
-.banner-diagram svg {
-  width: 20px;
-}
-.diagram-final {
-  background: #e68e40 !important;
-  box-shadow: 0 7px 24px #d8752420;
-}
-.diagram-final svg,
-.diagram-final span {
-  color: #332214 !important;
-}
-.diagram-line {
-  flex-basis: 14px;
-}
 .stats-grid {
   gap: 0;
   border: 1px solid #e7e9ec;
@@ -1094,12 +1035,6 @@
   .main-content {
     padding-inline: 28px;
   }
-  .banner-diagram {
-    padding-left: 0;
-  }
-  .dashboard-banner h2 {
-    font-size: 23px;
-  }
   .auth-story {
     padding: 32px;
   }
@@ -1190,13 +1125,6 @@
   }
   .new-project-layout {
     grid-template-columns: 1fr;
-  }
-  .dashboard-banner {
-    grid-template-columns: 1fr;
-    padding: 25px;
-  }
-  .banner-diagram {
-    display: none;
   }
   .stats-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -101,52 +101,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      <section className="dashboard-banner enter">
-        <div>
-          <span className="eyebrow">
-            <T text={"MAKE SPACE FOR WHAT’S NEXT"} />
-          </span>
-          <h2>
-            <T text={"Your next big idea"} />
-            <br />
-            <T text={"starts with a better question."} />
-          </h2>
-          <p>
-            <T
-              text={
-                "Turn the challenge on your mind into a practical plan for your team."
-              }
-            />
-          </p>
-          <Link href="/project/new" className="button button-primary button-sm">
-            <T text={"Start something new "} />
-            <ArrowUpRight size={16} />
-          </Link>
-        </div>
-        <div className="banner-diagram" aria-hidden>
-          <div>
-            <Search size={20} />
-            <span>
-              <T text={"Understand"} />
-            </span>
-          </div>
-          <span className="diagram-line" />
-          <div>
-            <Activity size={20} />
-            <span>
-              <T text={"Evaluate"} />
-            </span>
-          </div>
-          <span className="diagram-line" />
-          <div className="diagram-final">
-            <ArrowUpRight size={20} />
-            <span>
-              <T text={"Move forward"} />
-            </span>
-          </div>
-        </div>
-      </section>
-
       <div className="stats-grid">
         {(
           [

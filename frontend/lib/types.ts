@@ -93,6 +93,7 @@ export type Evidence = {
   confidence: number;
 };
 export type Analysis = {
+  final_report?: import("@/components/blueprint/implementation-report").ImplementationDocument;
   workflow_analysis?: {
     business_context: string;
     current_system: {

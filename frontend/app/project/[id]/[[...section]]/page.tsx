@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog, useToast } from "@/components/ui/feedback";
 import { Empty, ErrorBox, Loading } from "@/components/ui/states";
 import { useSession } from "@/components/providers";
-import { api, post, humanize, date, ApiError } from "@/lib/api";
+import { api, post, humanize, date, ApiError, API_BASE } from "@/lib/api";
 import type {
   Project,
   Message,
@@ -651,6 +651,7 @@ export default function Workspace({
                       <Printer size={15} />
                       <T text={" Print / PDF"} />
                     </Button>
+                    {blueprint.content.final_report && <a className="button button-secondary" href={`${API_BASE}/api/projects/${id}/export/blueprint/docx?version=${blueprint.version}`}>Word</a>}
                   </div>
                 </div>
                 <div className="blueprint-cover">
@@ -666,6 +667,11 @@ export default function Workspace({
                         }
                       />
                     </p>
+                    <p className="blueprint-metadata">
+                      Version {blueprint.version} · {date(blueprint.created_at)}
+                      {blueprint.content.final_report && <> · {blueprint.content.final_report.industry} · {blueprint.content.final_report.language}<br />Selected option: {blueprint.content.final_report.selected_option}</>}
+                    </p>
+                    {!blueprint.content.final_report && <p className="no-print">This saved report uses the earlier format. Run analysis again to add solution options and the complete implementation design.</p>}
                   </div>
                   <FileText size={58} strokeWidth={1} />
                 </div>

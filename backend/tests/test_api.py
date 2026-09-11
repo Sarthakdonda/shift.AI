@@ -45,7 +45,8 @@ def test_discovery_to_blueprint_end_to_end(setup, project):
     assert bp['content']['ai_necessity']['classification'] == 'AUTOMATION_SUFFICIENT'
     assert bp['content']['solution']['components'][0]['uses_ai'] is False
     assert bp['content']['business_value']['metrics'][0]['is_assumption']
-    assert ai.calls == ['Discovery', 'WorkflowAnalysis', 'RootCause', 'Necessity', 'Solution', 'RedTeam', 'BusinessValue', 'Conclusion']
+    assert ai.calls == ['Discovery', 'WorkflowAnalysis', 'RootCause', 'Necessity', 'Option', 'Option', 'Option', 'DecisionMatrix', 'Solution',
+                        'ArchitectureReport', 'ExperienceReport', 'DataReport', 'PlanningReport', 'RedTeam', 'BusinessValue', 'Conclusion']
     assert client.post(f'/api/projects/{project}/blueprint/generate').json()['version'] == 1
     # Reload from a fresh repository instance: results live in Mongo collections.
     from app.repositories.store import Store

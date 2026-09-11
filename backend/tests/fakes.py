@@ -20,6 +20,12 @@ class FakeGemini:
 
     def generate_structured(self, instruction, context, schema):
         self.calls.append(schema.__name__)
+        from tests.report_fixtures import decision_fixture, part_fixture
+        if schema.__name__ == 'OptionDecision': return schema.model_validate(decision_fixture())
+        if schema.__name__ == 'Option': return schema.model_validate(next(o for o in decision_fixture()['options'] if o['tier'] == context['requested_tier']))
+        if schema.__name__ == 'DecisionMatrix': return schema.model_validate(decision_fixture())
+        if schema.__name__ in ('ArchitectureReport', 'ExperienceReport', 'DataReport', 'PlanningReport'):
+            return schema.model_validate(part_fixture(schema.__name__))
         if schema.__name__ == 'Deliverable':
             return schema.model_validate(deliverable_fixture())
         if schema.__name__ == 'TranslationOutput':

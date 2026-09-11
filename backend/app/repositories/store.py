@@ -116,6 +116,8 @@ class Store:
     def save_blueprint(self, pid, content):
         previous = self.latest('blueprints', pid)
         b = {'project_id': pid, 'version': (previous['version'] if previous else 0) + 1, 'content': content, 'created_at': now()}
+        if content.get('final_report'):
+            b['content'] = {**content, 'final_report': {**content['final_report'], 'report_version': b['version'], 'prepared_at': b['created_at'].isoformat()}}
         b['_id'] = self.db.blueprints.insert_one(b).inserted_id
         return b
 

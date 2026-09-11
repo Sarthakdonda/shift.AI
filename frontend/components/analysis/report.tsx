@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Analysis, Finding, Necessity } from "@/lib/types";
 import { humanize } from "@/lib/api";
+import { ImplementationReport } from "@/components/blueprint/implementation-report";
 
 export function BulletList({ items }: { items: string[] }) {
   return items.length ? (
@@ -488,6 +489,7 @@ export function ValueReport({ data }: { data: Analysis }) {
   );
 }
 export function FullReport({ data }: { data: Analysis }) {
+  if (data.final_report) return <ImplementationReport report={data.final_report} />;
   return (
     <>
       <div className="report-stack">

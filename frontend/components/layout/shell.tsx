@@ -17,6 +17,7 @@ import {
   MessageSquare,
   Files,
   ChartNoAxesCombined,
+  ChevronRight,
   Workflow,
   ShieldCheck,
   FileCheck2,
@@ -244,6 +245,11 @@ export function Shell({
                   {user?.local ? "Personal · Local" : "Personal workspace"}
                 </small>
               </span>
+              <ChevronRight
+                className="dx-switcher-go dx-nav-text"
+                size={14}
+                aria-hidden
+              />
             </Link>
             <div className="account">
               <span className="account-avatar" aria-hidden>

@@ -12,6 +12,7 @@ from app.services.retrieval_service import retrieve
 from app.services.discovery_service import DiscoveryService, load_memory
 from app.services.generation_service import Generation, CancellableAI
 from app.workflows.shift_graph import build_graph
+from app.services.report_service import assemble_report
 
 logger = logging.getLogger(__name__)
 
@@ -113,10 +114,11 @@ class ProjectService:
             content['problem_statement'] = context['project']['initial_problem']
             content['evidence'] = context['previous_discovery']['collected_information'] if context['previous_discovery'] else []
             content['retrieval_warnings'] = context['retrieval_warnings']
+            content['final_report'] = assemble_report(content, context)
             self.store.save_analysis(pid, content)
             self.store.save_blueprint(pid, content)
             self.store.update(pid, status='BLUEPRINT_READY', ai_necessity=content['ai_necessity'], error=None)
-            self.store.message(pid, 'assistant', 'Your blueprint is ready. Review the diagnosis, recommended solution, Red Team findings, and implementation roadmap.', message_type='status')
+            self.store.message(pid, 'assistant', 'Your blueprint is ready. Review the three solution options, selected design, architecture, workflows, UX, data/API design, estimates, Red Team findings and implementation plan, then save the complete report as PDF.', message_type='status')
         except Exception as exc:
             if isinstance(exc, AppError) and exc.code == 'generation_cancelled':
                 self.store.update(pid, status='DISCOVERY', error=None)
