@@ -87,7 +87,13 @@ On macOS/Linux, use `.venv/bin/python` for Python commands and `npm` instead of 
 
 **Do not overwrite an existing `.env` when upgrading.** In the original working folder, the supplied Atlas connection has already been placed in the ignored `backend/.env`, and a random session secret has been generated. Those files are intentionally absent from GitHub. Add your Gemini key there, then restart the backend. A fresh clone requires the setup above.
 
+For the Android app on the same Wi-Fi, double-click **`start-wifi.cmd`**, then open
+**Shift AI** on your phone. USB is only needed for initial installation. If the
+computer address changes, use **Server → Find server** in the app. See
+[Android Wi-Fi setup](docs/ANDROID_WIFI.md) for installation and troubleshooting.
+
 ## Google authentication: exactly what to configure
+
 
 This implementation uses Google's credential popup, **not an OAuth authorization-code redirect**. No Google client secret or redirect callback URL is needed.
 

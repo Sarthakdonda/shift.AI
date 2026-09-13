@@ -16,3 +16,4 @@
 *.tsbuildinfo
 *.log
 .local/
+android/dist/

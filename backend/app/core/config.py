@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     mongodb_uri: str = ''
     mongodb_database: str = 'shift_ai'
     cors_origins: str = 'http://localhost:3000,http://localhost:3001'
+    lan_access: bool = False
     max_upload_mb: int = 15
     google_client_id: str = ''
     session_secret: str = ''
@@ -42,7 +43,11 @@ class Settings(BaseSettings):
 
     @property
     def origins(self):
-        return [s.strip() for s in self.cors_origins.split(',') if s.strip()]
+        origins = [s.strip() for s in self.cors_origins.split(',') if s.strip()]
+        if self.lan_access:
+            from app.lan import lan_origins
+            origins += lan_origins()
+        return list(dict.fromkeys(origins))
 
 
 @lru_cache

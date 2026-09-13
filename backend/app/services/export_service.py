@@ -11,6 +11,7 @@ from pptx.util import Inches, Pt
 from app.core.errors import AppError
 
 MIME = {'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'pdf': 'application/pdf',
         'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
         'json': 'application/json', 'md': 'text/markdown; charset=utf-8', 'zip': 'application/zip', 'bpmn': 'application/xml'}
@@ -134,6 +135,9 @@ def bpmn(diagram):
 
 def export(title, content, fmt):
     if fmt not in MIME: raise AppError('Unsupported export format.', 415)
+    if fmt == 'pdf':
+        from app.services.pdf_export import blueprint_pdf
+        return blueprint_pdf(title, content)
     if fmt == 'json': return json.dumps(content, ensure_ascii=False, indent=2).encode()
     report = content.get('final_report')
     if report and fmt == 'docx': return report_docx(title, report)

@@ -4,6 +4,7 @@ import json
 import zipfile
 import pytest
 from docx import Document
+from pypdf import PdfReader
 from pydantic import ValidationError
 from app.models.final_report import OptionDecision, Estimate, PART_SCHEMAS, validate_consistency
 from app.services.export_service import export
@@ -46,6 +47,35 @@ def test_complete_report_and_editable_exports():
     archive = zipfile.ZipFile(io.BytesIO(export(report['title'], content, 'zip')))
     assert {'schema.sql','openapi.yaml','report.md','deliverable.json'}.issubset(archive.namelist())
     assert any(n.endswith('.bpmn') for n in archive.namelist())
+
+
+def test_pdf_contains_complete_report_and_handles_long_table_cells():
+    content = generated()
+    report = content['final_report']
+    report['sections'][0]['narrative'] += ' Literal <tag> & source text.'
+    report['sections'][0]['tables'].append({
+        'title': 'Long table', 'columns': ['Details'],
+        'rows': [['Long cell content. ' * 1200 + 'END OF LONG CELL']],
+    })
+    payload = export(report['title'], content, 'pdf')
+    assert payload.startswith(b'%PDF-')
+    pdf = PdfReader(io.BytesIO(payload))
+    text = '\n'.join(page.extract_text() for page in pdf.pages)
+    assert len(pdf.pages) > 1
+    assert pdf.metadata.title == report['title']
+    for section in report['sections']:
+        assert section['title'] in ' '.join(text.split())
+    assert 'Literal <tag> & source text.' in text
+    assert 'END OF LONG CELL' in text
+    assert 'Evidence / assumptions:' in text
+    assert 'schema.sql' in text
+
+
+def test_pdf_supports_legacy_blueprints():
+    payload = export('Legacy blueprint', {'summary': 'Original saved analysis.'}, 'pdf')
+    text = PdfReader(io.BytesIO(payload)).pages[0].extract_text()
+    assert 'Legacy blueprint' in text
+    assert 'Original saved analysis.' in text
 
 
 @pytest.mark.parametrize('change', ['weight', 'duplicate_tier', 'winner', 'duplicate_scope', 'missing_score', 'rejection'])
@@ -119,6 +149,12 @@ def test_blueprint_export_uses_requested_saved_version(setup, project):
     assert original.json()['final_report']['title'] == 'Invoice operations'
     assert client.get(f'/api/projects/{project}/export/blueprint/json?version=2').json()['final_report']['title'] == 'Later design'
     assert client.get(f'/api/projects/{project}/export/blueprint/json?version=900').status_code == 404
+    pdf = client.get(f'/api/projects/{project}/export/blueprint/pdf?version=1')
+    assert pdf.status_code == 200
+    assert pdf.headers['content-type'] == 'application/pdf'
+    assert pdf.headers['content-disposition'] == 'attachment; filename="shift-ai-deliverable-v1.pdf"'
+    assert PdfReader(io.BytesIO(pdf.content)).metadata.title == 'Invoice operations'
+    assert client.get(f'/api/projects/{project}/export/blueprint/pdf?version=900').status_code == 404
 
 
 def test_failed_report_generation_preserves_previous_blueprint(setup, project, monkeypatch):

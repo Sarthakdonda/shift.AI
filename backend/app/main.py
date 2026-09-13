@@ -31,7 +31,15 @@ async def lifespan(app):
 
 
 app = FastAPI(title='shift.AI API', version='1.0.0', lifespan=lifespan)
-app.add_middleware(CORSMiddleware, allow_origins=get_settings().origins, allow_credentials=True, allow_methods=['GET', 'POST', 'DELETE', 'OPTIONS'], allow_headers=['Content-Type'])
+
+
+class WorkspaceCORSMiddleware(CORSMiddleware):
+    def is_allowed_origin(self, origin):
+        # Wi-Fi addresses can change while the local development server is running.
+        return origin in get_settings().origins
+
+
+app.add_middleware(WorkspaceCORSMiddleware, allow_credentials=True, allow_methods=['GET', 'POST', 'DELETE', 'OPTIONS'], allow_headers=['Content-Type'])
 
 
 @app.middleware('http')

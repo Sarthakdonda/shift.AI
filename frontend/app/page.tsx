@@ -57,7 +57,7 @@ const faqs = [
   ],
   [
     "What will I get at the end?",
-    "A reviewed blueprint covering your problem, the recommended solution, a phased roadmap, business value, risks, and next steps. Copy it, download Markdown, or print it to PDF.",
+    "A reviewed blueprint covering your problem, the recommended solution, a phased roadmap, business value, risks, and next steps. Copy it, download a PDF, or print it.",
   ],
   [
     "Can I return to a project later?",
@@ -415,7 +415,7 @@ export default function Landing() {
               </p>
               <div className="export-tags">
                 <span>
-                  <T text={"Markdown"} />
+                  <T text={"Download PDF"} />
                 </span>
                 <span>
                   <T text={"Copy"} />

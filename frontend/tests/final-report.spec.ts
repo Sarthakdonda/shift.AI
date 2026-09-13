@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import path from "node:path";
+import { readFile } from "node:fs/promises";
 
 test("complete scenario report, Word download and readable PDF", async ({
   page,
@@ -49,6 +50,13 @@ test("complete scenario report, Word download and readable PDF", async ({
     expect((await download).suggestedFilename()).toBe(
       "shift-ai-deliverable-v1.docx",
     );
+    const pdfDownload = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Download PDF", exact: true }).click();
+    const pdf = await pdfDownload;
+    expect(pdf.suggestedFilename()).toMatch(/-blueprint\.pdf$/);
+    const pdfPath = await pdf.path();
+    expect(pdfPath).toBeTruthy();
+    expect((await readFile(pdfPath!)).subarray(0, 5).toString()).toBe("%PDF-");
     await page
       .locator("#report-matrix")
       .screenshot({ path: testInfo.outputPath("matrix.png") });

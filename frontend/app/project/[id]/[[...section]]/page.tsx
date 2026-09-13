@@ -56,6 +56,7 @@ export default function Workspace({
   const [documents, setDocuments] = useState<Document[]>([]);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [blueprint, setBlueprint] = useState<Blueprint | null>(null);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [action, setAction] = useState("");
@@ -613,7 +614,7 @@ export default function Workspace({
                           setNotice("Blueprint copied to clipboard.");
                         } catch {
                           setError(
-                            "Clipboard access was blocked. Use Download instead.",
+                            "Clipboard access was blocked. Use Download PDF instead.",
                           );
                         }
                       }}
@@ -624,28 +625,36 @@ export default function Workspace({
                     <Button
                       variant="secondary"
                       size="sm"
-                      onClick={() => {
-                        const url = URL.createObjectURL(
-                          new Blob(
-                            [
-                              blueprintMarkdown(
-                                project.name,
-                                blueprint.content,
-                              ),
-                            ],
-                            { type: "text/markdown;charset=utf-8" },
-                          ),
-                        );
-                        const a = document.createElement("a");
-                        a.href = url;
-                        a.download = `${project.name.replace(/[^a-z0-9]+/gi, "-").slice(0, 80)}-blueprint.md`;
-                        a.click();
-                        setTimeout(() => URL.revokeObjectURL(url), 1000);
-                        setNotice("Blueprint downloaded.");
+                      disabled={downloadingPdf}
+                      onClick={async () => {
+                        setDownloadingPdf(true);
+                        setError("");
+                        try {
+                          const response = await fetch(
+                            `${API_BASE}/api/projects/${id}/export/blueprint/pdf?version=${blueprint.version}`,
+                            { credentials: "include", signal: AbortSignal.timeout(120000) },
+                          );
+                          if (!response.ok) {
+                            throw new Error("Could not download the PDF. Please try again.");
+                          }
+                          const url = URL.createObjectURL(await response.blob());
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = `${project.name.replace(/[^a-z0-9]+/gi, "-").slice(0, 80)}-blueprint.pdf`;
+                          document.body.appendChild(a);
+                          a.click();
+                          a.remove();
+                          setTimeout(() => URL.revokeObjectURL(url), 1000);
+                          setNotice("Blueprint PDF downloaded.");
+                        } catch {
+                          setError("Could not download the PDF. Please try again.");
+                        } finally {
+                          setDownloadingPdf(false);
+                        }
                       }}
                     >
                       <Download size={15} />
-                      <T text={" Download"} />
+                      <T text={downloadingPdf ? " Preparing PDF…" : " Download PDF"} />
                     </Button>
                     <Button size="sm" onClick={() => window.print()}>
                       <Printer size={15} />

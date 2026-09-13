@@ -9,6 +9,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--port', type=int, default=8000)
     parser.add_argument('--no-reload', action='store_true')
+    parser.add_argument('--lan', action='store_true', help='Allow phones on the same network and enable server discovery')
     parser.add_argument('--check', action='store_true', help='Verify dependencies without starting a server')
     args = parser.parse_args()
     backend = Path(__file__).resolve().parent
@@ -23,6 +24,8 @@ def main():
         command = [str(python), '-m', 'app.local_server', '--port', str(args.port)]
         if args.no_reload:
             command += ['--no-reload']
+        if args.lan:
+            command += ['--lan']
         print(f'Starting backend at http://localhost:{args.port} (Ctrl+C to stop)', flush=True)
     try:
         return subprocess.call(command, cwd=backend)
