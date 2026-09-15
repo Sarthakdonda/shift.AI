@@ -9,6 +9,7 @@ from openpyxl import Workbook
 from pptx import Presentation
 from pptx.util import Inches, Pt
 from app.core.errors import AppError
+from app.services.report_presentation import prepare_report
 
 MIME = {'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'pdf': 'application/pdf',
@@ -33,10 +34,11 @@ def lines(value, depth=0):
 
 
 def report_lines(report):
+    report = prepare_report(report)
     yield 0, report['title']
     if report.get('report_version'): yield 2, f"Version {report['report_version']} · Prepared {report['prepared_at']}"
     yield 1, f"Industry: {report['industry']} | Language: {report['language']} | Selected option: {report['selected_option']}"
-    for i, section in enumerate(report['sections'], 2):
+    for i, section in enumerate(report['sections'], 1):
         yield 0, f"{i}. {section['title']}"
         if section['applicability'] == 'not_applicable': yield 2, 'Not applicable — rationale below.'
         yield 2, section['narrative']
@@ -65,6 +67,7 @@ def visual_lines(section):
 
 
 def report_docx(title, report):
+    report = prepare_report(report)
     doc = Document()
     doc.add_heading(title, 0)
     doc.add_paragraph('shift.AI · Strategy & implementation blueprint')
@@ -73,9 +76,9 @@ def report_docx(title, report):
     doc.add_paragraph('Advisory design. Validate evidence, assumptions and material risks before implementation.')
     doc.add_page_break()
     doc.add_heading('Report contents', 1)
-    for i, section in enumerate(report['sections'], 2): doc.add_paragraph(f"{i}. {section['title']}")
+    for i, section in enumerate(report['sections'], 1): doc.add_paragraph(f"{i}. {section['title']}")
     doc.add_page_break()
-    for i, section in enumerate(report['sections'], 2):
+    for i, section in enumerate(report['sections'], 1):
         doc.add_heading(f"{i}. {section['title']}", 1)
         if section['applicability'] == 'not_applicable': doc.add_paragraph('Not applicable — rationale below.')
         doc.add_paragraph(section['narrative'])

@@ -9,6 +9,10 @@ Missing facts must be visibly marked "Requires validation". Never invent financi
 or null bounds with unknown confidence. Unknown costs must identify the currency/rate/vendor questions to resolve.
 Keep designs proportional: an existing-software/process change can legitimately have no custom API, database or UI.
 Mark such chapters not_applicable and explain why. Do not leave empty headings or generic filler.
+Write for a formal implementation document: plain factual language, no marketing copy, decorative text,
+repeated disclaimers, duplicated paragraphs/tables or restatements of previous sections.
+Keep the executive summary brief; put each detailed requirement, estimate, risk and acceptance criterion in its owning chapter.
+Cross-reference earlier facts when needed instead of copying them. Retain material evidence, assumptions and unresolved risks.
 Use the exact selected option and the SAME component/entity/integration names throughout all parts.
 All prose, titles and table labels must follow context.output_language. Machine keys/enums remain unchanged.
 Use concise paragraphs and narrow tables (prefer 2-4 columns; split wide catalogues into multiple tables).
@@ -57,6 +61,12 @@ If there is no user-facing application, explain that in the inapplicable wirefra
     'data_report': '''Use architecture_report's exact canonical entity/component/integration names in both prose and refs.
 Use chapter keys exactly once:
 data_model: ER diagram with entities, relationships, cardinalities, PK/FK and constraints; data ownership/source of truth.
+Include a conceptual ER model whenever architecture_report.entity_names contains business records, even when an existing
+application stores them and no new database is proposed. Use kind=er and kind=entity nodes covering every canonical entity.
+Node label format: exact canonical entity name, then newline-separated key fields such as "id UUID PK" and
+"customer_id UUID FK". Include only supported/proposed fields, never invent source-system fields.
+Relationship labels start with explicit endpoint multiplicities, e.g. "1 to 0..*: Customer.id -> Order.customer_id",
+then the relationship meaning/constraint. Use 1, 0..1, 0..*, or 1..*. State unknown relationships as requiring validation.
 database: tables/collections or configured records, fields, types, nullability, unique/index/foreign-key constraints,
 audit fields, retention, sensitivity and access. Include reviewable SQL asset only if a custom relational store is justified.
 apis: REST catalogue with method/path, purpose, actor, component, input/output examples, auth/permission,
@@ -64,7 +74,8 @@ validation, errors, idempotency and dependencies; do not claim a vendor endpoint
 Include OpenAPI YAML if custom APIs are proposed; all schema entities must match the ER/field catalogue.
 integrations: data_flow diagram and contracts: system/direction, protocol/API/event/file, mapping/transformation,
 authentication, retries/failure handling, reconciliation, ownership and source-of-truth rules.
-Mark custom data/API design not applicable with reason if the selected path only changes a manual process or existing tool configuration.''',
+Mark custom database/API design not applicable with reason if the selected path only changes a manual process or existing tool configuration.
+Only mark the conceptual data_model not applicable when there are no business entities/records to model.''',
     'planning_report': '''Use all preceding design parts and selected option. Use chapter keys exactly once:
 estimates: phase/module/workstream effort ranges, one-time development/setup and recurring infrastructure/license/support costs,
 arithmetic/rates/currency where provided, unknown vendor quotes, assumptions/confidence. Also populate typed estimates

@@ -39,7 +39,7 @@ def test_complete_report_and_editable_exports():
     doc = Document(io.BytesIO(export(report['title'], content, 'docx')))
     headings = [p.text for p in doc.paragraphs if p.style.name.startswith('Heading')]
     assert any('Three solution options' in h for h in headings)
-    assert any('35. Appendix' in h for h in headings)
+    assert any('34. Appendix' in h for h in headings)
     assert len(doc.tables) > 30
     markdown = export(report['title'], content, 'md').decode()
     assert 'low_level_schema' not in markdown and 'component_refs' not in markdown

@@ -10,7 +10,7 @@ export function blueprintMarkdown(name: string, data: Analysis): string {
       report.sections
         .map((s, i) => {
           const parts = [
-            `## ${i + 2}. ${s.title}`,
+            `## ${i + 1}. ${s.title}`,
             s.applicability === "not_applicable"
               ? "Not applicable — see rationale."
               : "",

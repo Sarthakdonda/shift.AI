@@ -31,6 +31,21 @@ test("complete scenario report, Word download and readable PDF", async ({
     await expect(page.locator("#report-data_model")).toContainText(
       "invoice_id",
     );
+    await expect(
+      page.locator("#report-data_model [data-testid=report-er-diagram]"),
+    ).toBeVisible();
+    await expect(
+      page.locator("#report-data_model .report-er-entity"),
+    ).toHaveCount(2);
+    await expect(page.locator("#report-data_model svg").first()).toBeVisible();
+    await expect(
+      page.locator("#report-data_model svg line").first(),
+    ).toHaveAttribute("x2", "180");
+    await page
+      .locator("#report-data_model [data-testid=report-er-diagram]")
+      .screenshot({
+        path: testInfo.outputPath("er-diagram.png"),
+      });
     await expect(page.locator("#report-journeys .report-screen")).toHaveCount(
       3,
     );
@@ -51,7 +66,9 @@ test("complete scenario report, Word download and readable PDF", async ({
       "shift-ai-deliverable-v1.docx",
     );
     const pdfDownload = page.waitForEvent("download");
-    await page.getByRole("button", { name: "Download PDF", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Download PDF", exact: true })
+      .click();
     const pdf = await pdfDownload;
     expect(pdf.suggestedFilename()).toMatch(/-blueprint\.pdf$/);
     const pdfPath = await pdf.path();
@@ -66,7 +83,7 @@ test("complete scenario report, Word download and readable PDF", async ({
     await page.setViewportSize({ width: 680, height: 1000 });
     const overflows = await page
       .locator(
-        ".implementation-report td, .report-flow-node, .report-screen-control",
+        ".implementation-report td, .report-flow-node, .report-screen-control, .report-er-entity",
       )
       .evaluateAll((elements) =>
         elements

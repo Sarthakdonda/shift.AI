@@ -1,5 +1,6 @@
 """Validated, scenario-independent contract for the final implementation report."""
 from typing import Literal, ClassVar
+import re
 from pydantic import BaseModel, Field, model_validator
 from app.models.deliverables import Section, Diagram, Screen, CodeAsset
 
@@ -158,6 +159,11 @@ class ReportPart(ReportModel):
                         'journeys': {'workflow'}, 'data_model': {'er'}, 'integrations': {'data_flow'}}.get(c.key, set())
             if not expected.issubset({d.kind for d in c.diagrams}):
                 raise ValueError(c.key + ' requires diagrams: ' + ', '.join(expected))
+            if c.key == 'data_model':
+                for diagram in c.diagrams:
+                    if diagram.kind == 'er' and (any(node.kind != 'entity' for node in diagram.nodes) or
+                                                any(not edge.label.strip() for edge in diagram.edges)):
+                        raise ValueError('ER diagrams require entity nodes and explicit relationship definitions.')
             if c.key == 'wireframes' and not c.screens:
                 raise ValueError('An applicable UX chapter requires actual screen wireframes.')
             if c.key in {'stack', 'lld', 'database', 'apis', 'resources', 'timeline', 'releases', 'readiness'} and not c.tables:
@@ -204,6 +210,14 @@ def validate_consistency(decision, solution, parts):
     decision = OptionDecision.model_validate(decision)
     models = [schema.model_validate(parts[key]) for key, schema in PART_SCHEMAS.items()]
     architecture = models[0]
+    data_model = next(c for c in models[2].chapters if c.key == 'data_model')
+    if architecture.entity_names:
+        if data_model.applicability != 'applicable':
+            raise ValueError('Business records require a conceptual ER model, including records held in existing tools.')
+        er_nodes = [n for d in data_model.diagrams if d.kind == 'er' for n in d.nodes]
+        for name in architecture.entity_names:
+            if not any(re.match(r'^' + re.escape(name) + r'(?:\s*[·|\n:(]|\s*$)', n.label, re.I) for n in er_nodes):
+                raise ValueError('ER diagram must include the canonical entity: ' + name)
     if any(p.selected_option != decision.selected for p in models):
         raise ValueError('Every design part must implement the selected option.')
     if set(architecture.component_names) != {c['name'] for c in solution['components']}:

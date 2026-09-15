@@ -152,7 +152,7 @@ components:
             if kind == 'architecture':
                 diagram = {**diagram, 'nodes':[dict(id='operator',label='Operations reviewer',lane='Client',kind='component'),dict(id='importer',label='Invoice importer',lane='Application',kind='component'),dict(id='store',label='Invoice and AuditEvent',lane='Data',kind='entity')], 'edges':[dict(source='operator',target='importer',label='Upload and approve'),dict(source='importer',target='store',label='Validate and audit')]}
             elif kind == 'er':
-                diagram = {**diagram, 'nodes':[dict(id='invoice',label='Invoice · id PK',lane='Invoice importer',kind='entity'),dict(id='audit',label='AuditEvent · invoice_id FK',lane='Invoice importer',kind='entity')], 'edges':[dict(source='invoice',target='audit',label='1 to 0..many; AuditEvent.invoice_id → Invoice.id')]}
+                diagram = {**diagram, 'nodes':[dict(id='invoice',label='Invoice · id PK',lane='Invoice importer',kind='entity'),dict(id='audit',label='AuditEvent · id PK · invoice_id FK',lane='Invoice importer',kind='entity')], 'edges':[dict(source='invoice',target='audit',label='1 to 0..many; AuditEvent.invoice_id → Invoice.id')]}
             else:
                 diagram = {**diagram, 'edges':[*diagram['edges'], dict(source='review',target='receive',label='Rejected: correct and resubmit')]}
             diagrams.append(diagram)

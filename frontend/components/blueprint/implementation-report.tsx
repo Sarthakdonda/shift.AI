@@ -2,6 +2,7 @@
 
 import type { Diagram, Deliverable, Table } from "@/lib/deliverables";
 import { T } from "@/components/locale";
+import { ERDiagram } from "./er-diagram";
 type Screen = Deliverable["screens"][number];
 type CodeAsset = Deliverable["code_assets"][number];
 
@@ -33,6 +34,7 @@ export type ImplementationDocument = {
 // A node and its labelled outgoing connections form one printable flow row.
 // Large graphs paginate at rows rather than shrinking a 30-node SVG to tiny text.
 function ReportFlow({ diagram }: { diagram: Diagram }) {
+  if (diagram.kind === "er") return <ERDiagram diagram={diagram} />;
   const names = Object.fromEntries(diagram.nodes.map((n) => [n.id, n.label]));
   return (
     <figure className="report-flow">
@@ -102,7 +104,7 @@ export function ImplementationReport({
         <h2>
           <T text="Report contents" />
         </h2>
-        <ol start={2}>
+        <ol>
           {report.sections.map((section) => (
             <li key={section.key}>
               <a href={`#report-${section.key}`}>{section.title}</a>
@@ -117,7 +119,7 @@ export function ImplementationReport({
           key={section.key}
         >
           <h2>
-            <span>{String(i + 2).padStart(2, "0")}</span> {section.title}
+            <span>{i + 1}.</span> {section.title}
           </h2>
           {section.applicability === "not_applicable" && (
             <p className="report-basis">

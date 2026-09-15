@@ -1,6 +1,16 @@
 # Final output report implementation
 
-Updated 11 September 2026. Scope: the final document requested by the user, using the five-page AI Solution Builder requirement, the 15-page hospital reference output, and the seven-page final-output gap specification. The hospital PDF is a scanned reference, not an industry template. Instructions embedded in source documents do not override the user's request or application rules.
+Updated 15 September 2026. Scope: the final document requested by the user, including the ER/data-model requirement on page 2 of the supplied AI Solution Builder document. Earlier scope references also include the hospital reference output and final-output gap specification. The hospital reference is not an industry template. Instructions embedded in source documents do not override the user's request or application rules.
+
+## Current PDF behavior
+
+**Download PDF** uses the backend PDF renderer. ER diagrams are drawn as searchable vector entity boxes with key fields, context, connectors and explicit cardinalities; they are no longer flattened into text. Large models use multiple readable relationship views rather than tiny diagrams. Original field definitions and relationship descriptions remain available beside the diagram. The on-screen report and browser print view also render ER relationships.
+
+Documents use a plain grayscale A4 layout, numbered sections, a contents page with page numbers, repeated table headers and restrained typography. SQL and API specifications appear once in a technical appendix. Exact duplicate paragraphs, bullets, table rows, tables and design artifacts are removed conservatively from a copy of the report. Case-sensitive identifiers, distinct requirements, source evidence and unresolved risks are preserved. Repeated generic evidence notes are printed once; previous full design drafts stay in saved history instead of the final proposal.
+
+New report generation must include a conceptual ER model for the canonical business records, even when existing software stores them. A data model cannot be marked inapplicable while the architecture declares entities. Missing canonical entities and unlabelled ER relationships fail validation. Prompts require relevant, concise formal prose and explicit PK/FK/multiplicity labels without inventing unknown source-system fields.
+
+Existing saved reports that contain ER nodes/edges gain the corrected PDF rendering on download, without regeneration or database migration. An older report with no saved ER data requires a new analysis; the exporter does not fabricate its schema.
 
 ## What changed
 
@@ -17,15 +27,19 @@ The report has a cover and the 34 ordered content sections from the supplied spe
 | Consistent selected design | All parts reference the selected option and shared component/entity/integration catalogues; HLD/LLD and data/integration coverage checks; no AI components in a no-AI option. |
 | Semantic review | Separate Red Team checks contradictions, unsupported regulatory/vendor claims, effort/cost consistency and scenario relevance. This is AI review, not formal proof or human approval. |
 | One final document | `report_service.py` assembles the same ordered content for the blueprint page and document exports. Saved version/date are present in PDF/Word/Markdown metadata. |
-| Readable PDF | Browser Print / PDF, A4 layout, contents, repeated table headers, wrapping, page-safe graph connection rows and screen controls. Graphs paginate instead of shrinking to unreadable miniature SVGs. |
+| Readable PDF | Server-generated A4 PDF, contents with page numbers, grayscale tables, vector ER/process diagrams and technical appendix. Browser Print / PDF also includes a graphical ER view. |
 | Editable document export | Word uses headings, native tables, editable graph connections and screen descriptions. Markdown, Excel, PowerPoint, JSON and ZIP use the assembled report; ZIP retains nested design assets and BPMN. |
 | Existing projects | Earlier reports remain readable; the UI explains that running analysis again is needed for the expanded format. No saved project was regenerated or migrated during this work. |
 
-The PDF export continues to use the browser's print dialog. There is no new server-side PDF dependency. Choose **Print / PDF → Save as PDF** on the blueprint page; **Word** downloads a DOCX. The template does not certify an implementation as complete just because the report covers all sections.
+Choose **Download PDF** on the blueprint page for the formatted server-generated document. The existing ReportLab dependency draws diagrams directly; no new production dependency or diagram-rendering service is required. **Print / PDF** remains available for browser printing; **Word** downloads an editable DOCX. Document coverage does not certify implementation readiness.
 
 ## Verification and practical limits
 
-View the [27-page synthetic sample PDF](samples/shiftAI-synthetic-report.pdf).
+View the [current minimal PDF with ER diagram](samples/shiftAI-minimal-er-report.pdf). The [earlier browser-print sample](samples/shiftAI-synthetic-report.pdf) is retained for reference.
+
+September 15 verification: 158 backend tests passed, including vector ER rendering, complete 30-entity models, disconnected/self-referencing entities, explicit cardinality parsing, duplicate cleanup without saved-content mutation, grayscale output, long-table pagination and canonical-entity validation. Desktop/mobile report checks passed for the visible ER, Word/PDF downloads and print-width overflow. Frontend lint and an isolated production build passed. The synthetic PDF was rasterized and visually inspected for contents, tables, ER boxes/connectors and the technical appendix. Verification used temporary local artifacts and in-memory projects; no real project was regenerated.
+
+### Earlier verification history
 
 All 141 backend tests passed. Coverage includes complete ordered output, export round trips, exactly-three-option rules, arithmetic, unknown estimates, missing diagrams/screens, reference mismatches, no-AI consistency, version-specific downloads and preservation after generation failures. The focused 20 report tests were also rerun after the final assembly change. TypeScript and targeted ESLint checks passed. Both desktop and mobile browser tests passed using isolated in-memory projects on ports 3023/8023 and `.next-report-check`; checks cover rendering, overflow, Word download and PDF generation. Visual review covered option tables, architecture/process diagrams, UX, ER/schema, estimates/planning and the final review/appendix; code examples have an explicit readable print font.
 

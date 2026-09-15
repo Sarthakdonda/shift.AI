@@ -1,5 +1,6 @@
 """Assemble one ordered, reviewable report from validated generation stages."""
 from app.models.final_report import OptionDecision, PART_SCHEMAS, validate_consistency
+from app.services.report_presentation import prepare_report, unique
 
 
 def table(title, columns, rows):
@@ -29,7 +30,8 @@ def merge_chapters(title, *chapters):
     merged['title'] = title
     merged['applicability'] = 'not_applicable' if all(c['applicability'] == 'not_applicable' for c in chapters) else 'applicable'
     merged['narrative'] = '\n\n'.join(c['title'] + (' — Not applicable' if c['applicability'] == 'not_applicable' else '') + ': ' + c['narrative'] for c in chapters)
-    merged['basis'] = '\n'.join(c['title'] + ': ' + c['basis'] for c in chapters)
+    bases = unique([c['basis'] for c in chapters])
+    merged['basis'] = bases[0] if len(bases) == 1 else '\n'.join(c['title'] + ': ' + c['basis'] for c in chapters)
     for key in ('items', 'tables', 'diagrams', 'screens', 'code_assets', 'component_refs', 'entity_refs', 'integration_refs'):
         merged[key] = [value for c in chapters for value in c[key]]
     return merged
@@ -54,7 +56,7 @@ def assemble_report(content, context):
     add(chapter('executive', 'Executive summary', conclusion['executive_summary']))
     add(chapter('problem', 'Original request and underlying problem', project['initial_problem'],
                 [f"Normalized problem: {r['root_problem']}", f"Requested solution: {r['user_request']}"]))
-    add(chapter('context', 'Business context, objectives and success definition', w['business_context'], s['success_metrics']))
+    add(chapter('context', 'Business context, objectives and success definition', w['business_context']))
     add(chapter('evidence', 'Evidence register and confidence policy',
         'Source-backed facts are attributed below. Proposed designs are recommendations, inferred assumptions are not confirmed facts, and estimates are planning ranges. Unknown facts, vendor access and applicable regulations require validation. Readiness scores are advisory heuristics.',
         content.get('retrieval_warnings', []), [table('Source register', ['Category', 'Fact', 'Source'],
@@ -93,6 +95,9 @@ def assemble_report(content, context):
             ('benefits', 'Benefits / outcomes'), ('limitations', 'Limitations / trade-offs'),
             ('risks_and_mitigations', 'Risks / mitigations'), ('scalability', 'Scalability'), ('best_fit', 'Best fit'), ('avoid_when', 'Do not select when')]]
         rows.insert(3, ['AI usage', f"{d['ai_usage']}: {d['ai_reason']}"])
+        if d['included'] == [d['scope']]:
+            rows[0][0] = 'Problem coverage / included scope'
+            rows = [row for row in rows if row[0] != 'Included']
         rows.extend([[label, estimate_text(d[key])] for key, label in [('effort', 'Effort estimate'), ('cost', 'Cost estimate'), ('duration', 'Delivery range')]])
         option_tables.append(table(option.tier.title() + ': ' + option.title, ['Comparison field', 'Option detail'], rows))
     add(chapter('options', 'Three solution options', 'Compare scope, cost, delivery and operating trade-offs before selecting the implementation path.', tables=option_tables))
@@ -140,8 +145,7 @@ def assemble_report(content, context):
         review_tables.append(table(f'Red Team cycle {i+1}', ['Summary', 'Review scope'], [[review['summary'], 'Selected solution and all implementation design parts']]))
         review_tables.extend(finding_tables(review['findings']))
     changes = [f"Cycle {x['cycle']} changed sections: {', '.join(x['changed_sections']) or 'No section content changed; findings remain subject to review.'}" for x in content.get('design_changes', [])]
-    changes += [f"Proposal {i+1}: {p['summary']} Components: " + '; '.join(c['name'] + ': ' + c['responsibility'] for c in p['components']) +
-                ' Human controls: ' + '; '.join(p['human_in_loop']) + ' Integrations: ' + '; '.join(p['integrations']) for i, p in enumerate(content['solution_history'])]
+    # Full intermediate proposals remain in saved history, not the final design.
     add(chapter('red_team', 'Independent Red Team review and design changes', content['red_team']['summary'], changes, review_tables))
     add(chapter('conclusion', 'Final recommendation and immediate next actions', conclusion['recommendation'], conclusion['next_steps']))
     add(chapter('appendix', 'Appendix: assumptions, unresolved items, glossary and artifact index',
@@ -152,6 +156,6 @@ def assemble_report(content, context):
         if any(c[k] for c in out for k in ('diagrams','screens','code_assets')) else []))
     # Generated chapters are validated individually before merging. Merged sections
     # can legitimately contain more tables than one generation-stage chapter.
-    return {'schema_version': 2, 'title': project['name'], 'industry': project.get('industry') or 'Not specified',
+    return prepare_report({'schema_version': 2, 'title': project['name'], 'industry': project.get('industry') or 'Not specified',
             'language': context['output_language'], 'source_revision': project.get('context_revision', 0),
-            'selected_option': decision.selected, 'sections': out}
+            'selected_option': decision.selected, 'sections': out})
