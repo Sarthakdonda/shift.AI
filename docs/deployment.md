@@ -52,9 +52,13 @@ Render CLI 2.27.0 creates services with environment variables but cannot update 
 
 Render's free instance sleeps after 15 minutes without traffic; its first request after sleeping can take about a minute. See https://render.com/docs/free.
 
+Email sign-in and signup check `/api/health` before submitting credentials. If the backend is waking (network timeout, 502/503/504 gateway response, or HTML loading page), the form shows a startup message and retries the health check for up to two minutes. The account submission is sent once after the API and database are ready. A persistent outage still produces an error; this does not prevent Render from sleeping.
+
 ## Verification
 
 Check `https://shiftai-five.vercel.app/backend/api/health`: expect `status: ok`, `database: connected`, `gemini_configured: true`, and `local_access_enabled: false`.
 Signed-out requests to `/backend/api/projects` must return 401. Login and signup should use `/backend/api/auth/*`, never a localhost URL.
 
 Production verification passed for signup, login, logout, authenticated API access, secure session cookies, and rejection of requests from an unapproved origin. The temporary verification account was removed from Atlas; existing accounts and projects were preserved.
+
+September 15, 2026: deployed the sign-in startup fix to Vercel (`dpl_E5AgkCPxHhSHLMuJTHaMoijDQuBs`). All 14 desktop/mobile authentication tests, lint, type checking, and the isolated production build passed. A live browser check confirmed recovery from simulated 502 and HTML startup responses, one login submission, the expected 401 for deliberately invalid credentials, a connected database, protected project access, and a Secure/HttpOnly nonce cookie. No production account was created for this check.

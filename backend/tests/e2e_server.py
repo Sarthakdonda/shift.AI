@@ -10,7 +10,9 @@ from app.api import workspaces, deliverables, exports, portability, outcomes, lo
 from tests.fakes import FakeGemini
 
 settings = get_settings()
-settings.mongodb_uri = ''
+# Health should report the in-memory store as connected. All stores below are
+# replaced with mongomock; this loopback discard port cannot reach a real DB.
+settings.mongodb_uri = 'mongodb://127.0.0.1:1/browser_test_shift_ai?serverSelectionTimeoutMS=1'
 settings.gemini_api_key = 'browser-tests-only'
 settings.gemini_api_keys = ''
 settings.google_client_id = ''

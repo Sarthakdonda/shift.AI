@@ -21,6 +21,7 @@ export default function Login() {
   const { user, loading, refresh } = useSession();
   const toast = useToast();
   const [busy, setBusy] = useState(false);
+  const [waitingForWorkspace, setWaitingForWorkspace] = useState(false);
   const [error, setError] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [name, setName] = useState("");
@@ -63,8 +64,15 @@ export default function Login() {
     }
     setBusy(true);
     try {
-      if (signup) await signUpWithEmail(name.trim(), email.trim(), password);
-      else await signInWithEmail(email.trim(), password);
+      if (signup)
+        await signUpWithEmail(
+          name.trim(),
+          email.trim(),
+          password,
+          setWaitingForWorkspace,
+        );
+      else
+        await signInWithEmail(email.trim(), password, setWaitingForWorkspace);
       await refresh();
       setPassword("");
       setConfirmation("");
@@ -78,6 +86,7 @@ export default function Login() {
       setError((error as Error).message);
     } finally {
       setBusy(false);
+      setWaitingForWorkspace(false);
     }
   }
 
@@ -188,6 +197,11 @@ export default function Login() {
             {error && (
               <p className={styles.error} role="alert">
                 {error}
+              </p>
+            )}
+            {waitingForWorkspace && (
+              <p className={styles.privateNote} role="status">
+                <T text="Your workspace is starting. This may take up to two minutes. We’ll continue automatically." />
               </p>
             )}
             <button
