@@ -48,6 +48,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         refresh,
         logout: async () => {
           await post("/auth/logout");
+          window.google?.accounts.id.disableAutoSelect();
           setUser(null);
         },
       }}

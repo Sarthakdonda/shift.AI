@@ -23,10 +23,23 @@ def main():
             if origin.endswith(':3000'):
                 print(f'Phone server address: {origin}', flush=True)
     try:
-        uvicorn.run('app.main:app',host='0.0.0.0' if args.lan else '127.0.0.1',port=args.port,reload=not args.no_reload,reload_dirs=[str(root/'app')] if not args.no_reload else None)
+        uvicorn.run(
+            'app.main:app',
+            host='0.0.0.0' if args.lan else '127.0.0.1',
+            port=args.port,
+            reload=not args.no_reload,
+            reload_dirs=[str(root)] if not args.no_reload else None,
+            reload_includes=['.env'] if not args.no_reload else None,
+            reload_excludes=[str(root / '.venv'), str(root / 'tests')] if not args.no_reload else None,
+        )
     finally:
         if discovery:
             discovery.close()
 
 
-if __name__=='__main__':main()
+if __name__ == '__main__':
+    main()
+elif __name__ == '__mp_main__':
+    # Uvicorn spawns each reload worker with the supervisor's old environment.
+    # Refresh it before the worker imports the app and caches its Settings.
+    load_dotenv(Path(__file__).resolve().parents[1] / '.env', override=True)

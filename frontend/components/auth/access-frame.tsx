@@ -107,7 +107,7 @@ export function AccessFrame({
   switchPrompt,
   switchLabel,
   switchHref,
-  eyebrow = "YOUR SPACE TO THINK AHEAD",
+  eyebrow,
   children,
 }: {
   title: string;
@@ -136,7 +136,7 @@ export function AccessFrame({
           <div className={styles.editorialCopy}>
             <span className={styles.eyebrow}>
               <span aria-hidden="true" />
-              <T text="A NEW WAY FORWARD" />
+              <T text="A new way forward" />
             </span>
             <h2>
               <T text="Make room for" />
@@ -170,18 +170,11 @@ export function AccessFrame({
         </aside>
         <section className={styles.formSide} aria-labelledby="account-title">
           <div className={styles.formContent}>
-            <div className={styles.formTop}>
+            {eyebrow && (
               <span className={styles.formEyebrow}>
                 <T text={eyebrow} />
               </span>
-              <p className={styles.switchAccount}>
-                <T text={switchPrompt} />{" "}
-                <Link href={switchHref}>
-                  <T text={switchLabel} />
-                  <ArrowRight size={13} aria-hidden="true" />
-                </Link>
-              </p>
-            </div>
+            )}
             <h1 id="account-title">
               <T text={title} />
             </h1>
@@ -189,6 +182,13 @@ export function AccessFrame({
               <T text={description} />
             </p>
             {children}
+            <p className={styles.switchAccount}>
+              <T text={switchPrompt} />{" "}
+              <Link href={switchHref}>
+                <T text={switchLabel} />
+                <ArrowRight size={13} aria-hidden="true" />
+              </Link>
+            </p>
           </div>
         </section>
       </main>

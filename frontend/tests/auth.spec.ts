@@ -6,10 +6,14 @@ test("account navigation and the new authentication layouts", async ({
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
+  const navigation =
+    testInfo.project.name === "mobile"
+      ? page.getByRole("navigation", { name: "Mobile navigation" })
+      : page.getByRole("banner");
   if (testInfo.project.name === "mobile")
     await page.getByRole("button", { name: "Open menu", exact: true }).click();
-  await page
-    .getByRole("link", { name: "Sign up", exact: true })
+  await navigation
+    .getByRole("link", { name: /^(Sign up|Get started)$/ })
     .filter({ visible: true })
     .click();
   await expect(page).toHaveURL(/\/signup$/);
@@ -30,8 +34,12 @@ test("account navigation and the new authentication layouts", async ({
     .getByRole("heading", { name: "Create your account." })
     .boundingBox();
   const firstField = await page.getByLabel("Full name").boundingBox();
-  expect(switchLink!.y).toBeLessThan(heading!.y);
-  expect(switchLink!.y).toBeLessThan(firstField!.y);
+  expect(switchLink!.y).toBeGreaterThan(heading!.y);
+  expect(switchLink!.y).toBeGreaterThan(firstField!.y);
+  await expect(
+    page.getByText("Your own account. Your own space to think."),
+  ).toHaveCount(0);
+  await expect(page.getByText(/Google sign-in turns on/)).toHaveCount(0);
   await page.screenshot({
     path: `test-results/auth-signup-${testInfo.project.name}.png`,
     fullPage: true,
@@ -54,6 +62,8 @@ test("account navigation and the new authentication layouts", async ({
     for (const size of [
       { width: 1366, height: 768 },
       { width: 1280, height: 720 },
+      { width: 1440, height: 900 },
+      { width: 1920, height: 1080 },
     ]) {
       await page.setViewportSize(size);
       for (const route of ["/login", "/signup", "/forgot-password"]) {
@@ -64,6 +74,23 @@ test("account navigation and the new authentication layouts", async ({
             () => document.documentElement.scrollHeight <= innerHeight,
           ),
         ).toBeTruthy();
+        const form = page.getByRole("region", {
+          name: /Welcome back|Create your account|Reset your password/,
+        });
+        const box = await form.boundingBox();
+        expect(box!.y).toBeGreaterThanOrEqual(0);
+        expect(box!.y + box!.height).toBeLessThanOrEqual(size.height);
+        const artwork = await page
+          .getByRole("complementary", { name: "About shift.AI" })
+          .boundingBox();
+        expect(artwork!.width / (artwork!.width + box!.width)).toBeCloseTo(
+          0.6,
+          2,
+        );
+        const switchBox = await page
+          .getByRole("link", { name: /^(Sign in|Sign up)$/ })
+          .boundingBox();
+        expect(switchBox!.y + switchBox!.height).toBeLessThan(size.height);
       }
     }
     await page.goto("/login");

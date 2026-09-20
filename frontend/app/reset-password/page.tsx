@@ -73,7 +73,7 @@ function ResetPassword() {
 
   return (
     <AccessFrame
-      eyebrow="ACCOUNT RECOVERY"
+      eyebrow="Account recovery"
       title={
         state === "invalid"
           ? "This link has expired."

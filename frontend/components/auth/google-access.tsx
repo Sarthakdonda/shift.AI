@@ -18,9 +18,12 @@ declare global {
           initialize: (options: {
             client_id: string;
             nonce: string;
+            auto_select: boolean;
+            button_auto_select: boolean;
             callback: (response: { credential: string }) => void;
           }) => void;
           renderButton: (element: HTMLElement, options: object) => void;
+          disableAutoSelect: () => void;
         };
       };
     };
@@ -50,8 +53,7 @@ function GoogleMark() {
   );
 }
 
-/** Google's own button is layered invisibly over this design, so the real
- *  credential flow runs while the workspace keeps its own styling. */
+/** Keep Google's rendered button visible and keyboard accessible. */
 export function GoogleAccess({
   mode,
   disabled,
@@ -63,15 +65,26 @@ export function GoogleAccess({
   onError: (message: string) => void;
   onBusyChange?: (busy: boolean) => void;
 }) {
-  const { health, loading, refresh } = useSession();
+  const { health, refresh } = useSession();
   const router = useRouter();
   const hostRef = useRef<HTMLDivElement>(null);
   const [scriptReady, setScriptReady] = useState(false);
   const [rendered, setRendered] = useState(false);
   const [working, setWorking] = useState(false);
   const clientId =
-    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || health?.google_client_id;
+    health?.google_client_id || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
   const configured = !!health?.google_configured && !!clientId;
+
+  // Render can be asleep when the session provider first checks availability.
+  useEffect(() => {
+    if (health) return;
+    let attempts = 0;
+    const timer = window.setInterval(() => {
+      if (++attempts >= 8) window.clearInterval(timer);
+      void refresh();
+    }, 15000);
+    return () => window.clearInterval(timer);
+  }, [health, refresh]);
 
   useEffect(() => {
     if (!scriptReady || !configured || !clientId || !hostRef.current) return;
@@ -84,6 +97,8 @@ export function GoogleAccess({
         window.google.accounts.id.initialize({
           client_id: clientId,
           nonce,
+          auto_select: false,
+          button_auto_select: false,
           callback: async ({ credential }) => {
             setWorking(true);
             onBusyChange?.(true);
@@ -99,16 +114,21 @@ export function GoogleAccess({
             }
           },
         });
+        // Also reset Google's sign-out state when arriving from a fresh page
+        // where its SDK wasn't loaded during logout.
+        window.google.accounts.id.disableAutoSelect();
         window.google.accounts.id.renderButton(hostRef.current, {
           theme: "outline",
-          size: "large",
+          // Google's medium button disables account-name/avatar personalization.
+          // https://developers.google.com/identity/gsi/web/guides/personalized-button
+          size: "medium",
           width: Math.max(
             200,
             Math.min(hostRef.current.clientWidth || 320, 400),
           ),
-          text: mode === "signup" ? "signup_with" : "signin_with",
+          text: "continue_with",
           shape: "rectangular",
-          logo_alignment: "center",
+          logo_alignment: "left",
         });
         setRendered(true);
       })
@@ -136,39 +156,24 @@ export function GoogleAccess({
       ) : (
         <GoogleMark />
       )}
-      <T text="Continue with Google" />
+      <T text={working ? "Signing in…" : "Continue with Google"} />
     </span>
   );
 
   if (!configured)
     return (
-      <>
-        <button
-          type="button"
-          className={styles.googleButton}
-          disabled
-          aria-describedby="google-availability"
-        >
-          {face}
-        </button>
-        <p className={styles.googleNote} id="google-availability">
-          <T
-            text={
-              loading
-                ? "Checking whether Google sign-in is available…"
-                : "Google sign-in turns on once GOOGLE_CLIENT_ID is set. Email accounts work now."
-            }
-          />
-        </p>
-      </>
+      <button
+        type="button"
+        className={styles.googleButton}
+        disabled
+        aria-label="Continue with Google"
+      >
+        {face}
+      </button>
     );
 
   return (
-    <div
-      className={styles.googleButton}
-      data-pending={rendered && !working ? "false" : "true"}
-      aria-busy={working}
-    >
+    <div className={styles.googleContainer} aria-busy={working}>
       <Script
         src="https://accounts.google.com/gsi/client"
         onReady={() => setScriptReady(true)}
@@ -178,9 +183,14 @@ export function GoogleAccess({
           )
         }
       />
-      {face}
+      {(!rendered || working) && (
+        <div className={styles.googlePlaceholder} role="status">
+          {face}
+        </div>
+      )}
       <div
         className={styles.googleFrame}
+        data-ready={rendered && !working}
         ref={hostRef}
         inert={disabled || working}
       />

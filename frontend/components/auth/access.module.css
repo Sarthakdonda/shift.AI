@@ -1,13 +1,12 @@
-/* Authentication frame. Every measurement scales with the viewport height so sign-in,
-   signup, and password recovery always finish inside one screen without page scrolling. */
+/* Compact at laptop heights, with natural overflow for zoom and small screens. */
 .page {
   --edge: clamp(18px, 2.7vw, 46px);
   --band: clamp(9px, 1.45vh, 21px);
-  --panel: clamp(20px, 3.1vh, 48px);
-  --gap: clamp(9px, 1.4vh, 16px);
-  --control: clamp(40px, 5vh, 47px);
+  --panel: clamp(24px, 3.8vw, 64px);
+  --gap: clamp(8px, 1.3vh, 14px);
+  --control: clamp(38px, 5vh, 46px);
   --title: clamp(25px, 3.5vh, 37px);
-  --display: clamp(29px, 5.3vh, 54px);
+  --display: clamp(36px, 5.7vh, 64px);
   min-height: 100svh;
   background: #fff;
   color: #19222b;
@@ -17,14 +16,14 @@
 @media (min-width: 861px) {
   .page {
     height: 100svh;
-    overflow: hidden;
+    min-height: 640px;
   }
 }
 
 /* Header */
 .header {
   width: 100%;
-  max-width: 1600px;
+  max-width: 1920px;
   margin: 0 auto;
   padding: var(--band) var(--edge);
   display: flex;
@@ -59,12 +58,12 @@
 /* Two-column frame */
 .layout {
   width: 100%;
-  max-width: 1512px;
+  max-width: 1920px;
   margin: 0 auto;
   padding: 0 var(--edge) var(--band);
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: clamp(18px, 2.4vw, 48px);
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 0;
   flex: 1;
   min-height: 0;
 }
@@ -73,10 +72,10 @@
 .editorial {
   position: relative;
   isolation: isolate;
-  background: #f7f4ef;
+  background: linear-gradient(145deg, #faf5ed, #f4efe8 75%, #ffead2);
   border: 1px solid #ede8e0;
-  border-radius: 24px;
-  padding: var(--panel);
+  border-radius: 28px;
+  padding: clamp(24px, 4vh, 48px) var(--panel);
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -105,7 +104,7 @@
   color: #796b5b;
   font-size: 10px;
   font-weight: 650;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.025em;
 }
 .eyebrow > span {
   height: 6px;
@@ -129,7 +128,7 @@
   font-size: clamp(13px, 1.7vh, 15px);
   line-height: 1.75;
   color: #737069;
-  max-width: 350px;
+  max-width: 380px;
   margin: 0;
 }
 
@@ -144,10 +143,24 @@
   padding: clamp(2px, 1.3vh, 18px) 0;
 }
 .art svg {
+  position: relative;
   width: 100%;
-  max-width: 560px;
-  max-height: min(350px, 39vh);
+  max-width: 660px;
+  max-height: min(380px, 38vh);
   overflow: visible;
+}
+.art::before {
+  content: "";
+  position: absolute;
+  width: min(74%, 460px);
+  aspect-ratio: 1;
+  border: 1px solid #dcbf9829;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 36px #e7ccb41a,
+    0 0 0 72px #e7ccb412;
+  transform: scaleY(0.48) rotate(-18deg);
+  animation: orbitGlow 8s ease-in-out infinite;
 }
 .guides path {
   stroke-dasharray: 640;
@@ -243,7 +256,7 @@
 .editorialFoot {
   position: relative;
   z-index: 1;
-  margin-top: clamp(14px, 2.8vh, 34px);
+  margin-top: clamp(12px, 2vh, 24px);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -261,35 +274,37 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--band) clamp(6px, 3vw, 60px);
+  padding: clamp(12px, 2vh, 28px) clamp(20px, 3vw, 58px);
   min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  min-width: 0;
 }
 .formContent {
   width: 100%;
-  max-width: 404px;
-}
-.formTop {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  padding-bottom: clamp(8px, 1.5vh, 16px);
-  border-bottom: 1px solid #eef0f1;
+  max-width: 440px;
+  padding: clamp(20px, 2.8vh, 32px) clamp(18px, 2vw, 32px);
+  border: 1px solid #ece8e2;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow:
+    0 12px 48px #6b4d2410,
+    0 2px 6px #6b4d2405;
+  animation: arrive 650ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .formEyebrow {
   color: #8a8176;
   font-size: 9px;
   font-weight: 650;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.02em;
 }
 .switchAccount {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  margin: 0;
+  margin: clamp(14px, 2vh, 22px) 0 0;
+  padding-top: clamp(12px, 1.7vh, 18px);
+  border-top: 1px solid #f0ece7;
+  flex-wrap: wrap;
   font-size: 12px;
   color: #737a80;
 }
@@ -306,14 +321,14 @@
   text-underline-offset: 4px;
 }
 .formContent h1 {
-  margin: clamp(12px, 2.1vh, 22px) 0 8px;
+  margin: 0 0 8px;
   font-size: var(--title);
   line-height: 1.14;
   letter-spacing: -0.045em;
   font-weight: 580;
 }
 .description {
-  margin: 0 0 clamp(14px, 2.2vh, 24px);
+  margin: 0 0 clamp(16px, 2.3vh, 24px);
   font-size: clamp(13px, 1.7vh, 14px);
   line-height: 1.55;
   color: #737a80;
@@ -339,7 +354,7 @@
   display: block;
   color: #374049;
   font-weight: 550;
-  font-size: 12px;
+  font-size: 13px;
 }
 .fieldAction {
   padding: 0;
@@ -348,7 +363,7 @@
   font-family: inherit;
   font-size: 11.5px;
   font-weight: 600;
-  color: #9a7a5c;
+  color: #a14d0a;
   cursor: pointer;
   transition: color 150ms;
 }
@@ -385,7 +400,7 @@
   outline: none;
   background: transparent;
   color: #19222b;
-  font-size: 13px;
+  font-size: 14px;
   box-shadow: none;
 }
 .inputWrap input:focus {
@@ -543,28 +558,32 @@
   gap: 10px;
   pointer-events: none;
 }
-.googleFrame {
+.googleContainer {
+  position: relative;
+  min-height: 40px;
+}
+.googlePlaceholder {
   position: absolute;
   inset: 0;
-  opacity: 0.0001;
-  overflow: hidden;
+  display: grid;
+  place-items: center;
+  border: 1px solid #dde1e4;
+  border-radius: 4px;
+  color: #72777c;
+  font-size: 13px;
 }
-.googleFrame > div,
-.googleFrame div,
-.googleFrame iframe {
-  width: 100% !important;
-  height: 100% !important;
-  min-height: 100% !important;
-  max-width: none !important;
+.googleFrame {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.googleButton[data-pending="true"] .googleFace {
-  opacity: 0.5;
+.googleFrame[data-ready="false"] {
+  visibility: hidden;
 }
-.googleNote {
-  margin: 7px 0 0;
-  font-size: 10.5px;
-  line-height: 1.45;
-  color: #868c91;
+.googleFrame[inert] {
+  pointer-events: none;
+  opacity: 0.6;
 }
 .privateNote {
   display: flex;
@@ -640,7 +659,7 @@
 
 /* Footer */
 .footer {
-  max-width: 1600px;
+  max-width: 1920px;
   width: 100%;
   margin: 0 auto;
   padding: calc(var(--band) * 0.7) var(--edge);
@@ -658,6 +677,27 @@
 }
 
 /* Animation */
+@keyframes arrive {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes orbitGlow {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scaleY(0.48) rotate(-18deg) scale(0.94);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleY(0.48) rotate(-18deg) scale(1.06);
+  }
+}
 @keyframes lift {
   0% {
     opacity: 0;
@@ -806,7 +846,25 @@
 }
 
 /* Short viewports keep the frame intact by trimming supporting copy first. */
-@media (min-width: 861px) and (max-height: 660px) {
+@media (min-width: 861px) and (max-height: 740px) {
+  .page {
+    --gap: 7px;
+    --control: 36px;
+    --title: 27px;
+  }
+  .formContent {
+    padding: 18px 22px;
+  }
+  .description {
+    margin-bottom: 14px;
+  }
+  .switchAccount {
+    margin-top: 12px;
+    padding-top: 12px;
+  }
+  .divider {
+    margin: 10px 0;
+  }
   .editorialCopy > p,
   .editorialFoot {
     display: none;
@@ -818,11 +876,11 @@
 
 @media (max-width: 860px) {
   .page {
-    --control: 46px;
-    --gap: 15px;
+    --control: 42px;
+    --gap: 10px;
   }
   .header {
-    padding: 20px 24px;
+    padding: 14px 24px;
   }
   .layout {
     grid-template-columns: 1fr;
@@ -832,31 +890,49 @@
     display: none;
   }
   .formSide {
-    padding: 20px 0 36px;
+    padding: 12px 0;
     overflow: visible;
   }
   .formContent {
     max-width: 420px;
   }
   .formContent h1 {
-    font-size: 34px;
+    font-size: 30px;
   }
   .footer {
-    padding: 18px 24px;
+    padding: 12px 24px;
   }
 }
 @media (max-width: 480px) {
   .header {
-    padding: 18px;
+    padding: 12px 18px;
     gap: 12px;
-    flex-wrap: wrap;
   }
   .navigation {
-    width: 100%;
-    justify-content: space-between;
+    gap: 12px;
   }
   .headerRule {
     display: none;
+  }
+  .back {
+    font-size: 0;
+    gap: 0;
+  }
+  .back svg {
+    width: 20px;
+    height: 20px;
+  }
+  .header > :last-child {
+    max-width: 120px;
+  }
+  .layout {
+    padding: 0 14px;
+  }
+  .formContent {
+    padding: 20px;
+  }
+  .description {
+    font-size: 12px;
   }
   .header > :last-child {
     margin-left: auto;
@@ -869,6 +945,34 @@
   }
   .footer {
     font-size: 9px;
+  }
+}
+@media (max-width: 860px) and (max-height: 740px) {
+  .page {
+    --control: 38px;
+    --gap: 7px;
+  }
+  .formContent {
+    padding: 16px 20px;
+  }
+  .formContent h1 {
+    font-size: 26px;
+  }
+  .description {
+    margin-bottom: 12px;
+  }
+  .fieldTop {
+    margin-bottom: 4px;
+  }
+  .divider {
+    margin: 10px 0;
+  }
+  .switchAccount {
+    margin-top: 10px;
+    padding-top: 10px;
+  }
+  .footer {
+    display: none;
   }
 }
 @media (prefers-reduced-motion: reduce) {

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useState, type FormEvent } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { ArrowRight, Check, LoaderCircle, LockKeyhole } from "lucide-react";
+import { ArrowRight, Check, LoaderCircle } from "lucide-react";
 import { T } from "@/components/locale";
 import {
   AccessFrame,
@@ -164,11 +164,7 @@ export default function Login() {
               maxLength={128}
               disabled={busy}
               error={submitted ? passwordError : ""}
-              hint={
-                signup
-                  ? "At least 12 characters. Try a memorable passphrase."
-                  : undefined
-              }
+              hint={signup ? "At least 12 characters." : undefined}
               action={
                 signup ? undefined : (
                   <Link href="/forgot-password" className={styles.fieldAction}>
@@ -238,10 +234,6 @@ export default function Login() {
             onError={showError}
             onBusyChange={changeBusy}
           />
-          <p className={styles.privateNote}>
-            <LockKeyhole size={13} aria-hidden="true" />
-            <T text="Your own account. Your own space to think." />
-          </p>
         </>
       )}
     </AccessFrame>

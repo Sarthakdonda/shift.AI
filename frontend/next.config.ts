@@ -7,7 +7,9 @@ const config: NextConfig = {
   allowedDevOrigins: [
     hostname(),
     ...Object.values(networkInterfaces()).flatMap((addresses) =>
-      (addresses || []).filter((address) => address.family === "IPv4").map((address) => address.address),
+      (addresses || [])
+        .filter((address) => address.family === "IPv4")
+        .map((address) => address.address),
     ),
   ],
   async rewrites() {
@@ -15,6 +17,18 @@ const config: NextConfig = {
     return backend
       ? [{ source: "/backend/:path*", destination: `${backend}/:path*` }]
       : [];
+  },
+  async headers() {
+    return ["/login", "/signup"].map((source) => ({
+      source,
+      headers: [
+        {
+          key: "Cross-Origin-Opener-Policy",
+          value: "same-origin-allow-popups",
+        },
+        { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+      ],
+    }));
   },
 };
 export default config;

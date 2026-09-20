@@ -24,6 +24,28 @@ NEXT_PUBLIC_SITE_URL=https://shiftai-five.vercel.app
 
 The Next.js rewrite forwards `/backend/*` to Render. This keeps browser API requests and secure HTTP-only session cookies on the frontend's origin. Private database and Gemini credentials belong only on Render. Local development continues to use `http://localhost:8000`.
 
+## Google sign-in
+
+The browser uses Google Identity Services with a popup and a nonce. Render verifies the Google ID token and issues the existing session cookie; no Google client secret is used or stored.
+
+Render environment settings:
+
+```dotenv
+GOOGLE_CLIENT_ID=721608304571-me5ocrf2l5eaemhf2s4m3ukga4jud2tq.apps.googleusercontent.com
+APP_BASE_URL=https://shiftai-five.vercel.app
+COOKIE_SECURE=true
+```
+
+The frontend reads the public client ID from `/backend/api/health`, so a separate Vercel client-ID variable is not required. Keep `NEXT_PUBLIC_API_BASE_URL=/backend` to preserve same-origin cookies.
+
+In Google Cloud, add `https://shiftai-five.vercel.app` to this client's **Authorized JavaScript origins**. For local development, also add `http://localhost` and `http://localhost:3000` (and port 3001 if used). Register any other frontend domain separately. Leave **Authorized redirect URIs** empty for this popup flow. Console configuration must be completed in the Google account that owns the OAuth client.
+
+The sign-in and sign-up pages allow Google popup communication, show Google's rendered button, and retry availability checks for up to two minutes if Render is waking. Test the final consent/account selection manually with a Google account; automated tests use a stub Google SDK and separately verify backend token and nonce handling.
+
+Remembered-account shortcuts are disabled: the Google SDK uses its non-personalized `medium` button, with `auto_select` and `button_auto_select` both false. Logout calls `disableAutoSelect`; initialization also calls it to cover returning from a page where the SDK was not loaded. This removes the profile/name/email shortcut from the app's login page. Google's own account chooser still manages Google sessions after an explicit button click. See [Google's button personalization rules](https://developers.google.com/identity/gsi/web/guides/personalized-button).
+
+## Frontend redeployment
+
 The frontend CLI deployment uploads local source; it is not configured for automatic Git deployments. Redeploy after changing production environment variables because Next.js embeds public variables during the build.
 
 ## Backend
@@ -62,3 +84,5 @@ Signed-out requests to `/backend/api/projects` must return 401. Login and signup
 Production verification passed for signup, login, logout, authenticated API access, secure session cookies, and rejection of requests from an unapproved origin. The temporary verification account was removed from Atlas; existing accounts and projects were preserved.
 
 September 15, 2026: deployed the sign-in startup fix to Vercel (`dpl_E5AgkCPxHhSHLMuJTHaMoijDQuBs`). All 14 desktop/mobile authentication tests, lint, type checking, and the isolated production build passed. A live browser check confirmed recovery from simulated 502 and HTML startup responses, one login submission, the expected 401 for deliberately invalid credentials, a connected database, protected project access, and a Secure/HttpOnly nonce cookie. No production account was created for this check.
+
+September 20, 2026: deployed the 60/40 animated authentication layout to Vercel (`dpl_2DxgN3mk9a1N1B1PP858e8jFL4Vm`) and activated the Google client ID on Render (`dep-dann0lek1f9s73997deg`). Lint, type checking, the isolated production build, backend Google token/nonce tests, and desktop/mobile authentication checks passed. Live login and signup fit at 1440×900, 1280×720, and 375×667 without document scrolling. Verified the configured client ID, Secure/HttpOnly nonce cookie on the frontend origin, signed-out project rejection, and a working Google popup that reaches Google's email-entry screen without an origin error. Google account entry and consent were not completed; no production account was created. Test ports 3011/8011 were closed and temporary artifacts removed; the development servers on 3000/8000 were preserved.

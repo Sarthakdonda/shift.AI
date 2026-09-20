@@ -42,7 +42,7 @@ export default function ForgotPassword() {
 
   return (
     <AccessFrame
-      eyebrow="ACCOUNT RECOVERY"
+      eyebrow="Account recovery"
       title={sent ? "Check your email." : "Reset your password."}
       description={
         sent

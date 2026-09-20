@@ -107,7 +107,6 @@ export default function Transformation() {
                   </td>
                   <td>{r.project.discovery_scores.overall || 0}%</td>
                   <td>
-                    <progress max={7} value={r.current_deliverables.length} />
                     <span>{r.current_deliverables.length}/7</span>
                   </td>
                   <td>{r.approved_deliverables.length}/7</td>
