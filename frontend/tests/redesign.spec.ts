@@ -7,7 +7,7 @@ test("landing preview, navigation, FAQs, and brand fit desktop and mobile", asyn
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: /Big possibilities/ }),
+    page.getByRole("heading", { name: /Your clearest path/ }),
   ).toBeVisible();
   await page.getByRole("tab", { name: /Diagnose/ }).click();
   await expect(page.getByRole("tabpanel")).toContainText(
@@ -19,7 +19,7 @@ test("landing preview, navigation, FAQs, and brand fit desktop and mobile", asyn
     "Give the plan a second look.",
   );
   await page.getByRole("tab", { name: /Discover/ }).click();
-  const logo = page.locator(".nav-inner .logo");
+  const logo = page.locator("header .logo");
   const logoBox = await logo.boundingBox();
   const markBox = await logo.locator("img").boundingBox();
   expect(logoBox).toBeTruthy();
@@ -28,19 +28,21 @@ test("landing preview, navigation, FAQs, and brand fit desktop and mobile", asyn
   if (testInfo.project.name === "mobile") {
     await page.getByRole("button", { name: "Open menu" }).click();
     await page
-      .locator(".nav-drawer")
+      .getByRole("navigation", { name: "Mobile navigation" })
       .getByRole("link", { name: "How it works" })
       .click();
-    await expect(page.locator(".nav-drawer")).toHaveCount(0);
+    await expect(
+      page.getByRole("navigation", { name: "Mobile navigation" }),
+    ).toHaveCount(0);
   }
   const faq = page.locator("details").first();
   await faq.locator("summary").click();
   await expect(faq).toHaveAttribute("open", "");
   await expect(faq.locator("p")).toBeVisible();
   await page.evaluate(() =>
-    document
-      .querySelectorAll(".reveal")
-      .forEach((el) => el.classList.add("is-visible")),
+    document.querySelectorAll<HTMLElement>("[data-reveal]").forEach((el) => {
+      el.dataset.reveal = "visible";
+    }),
   );
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({
@@ -194,11 +196,16 @@ test("reduced motion keeps landing content visible", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: /Big possibilities/ }),
+    page.getByRole("heading", { name: /Your clearest path/ }),
   ).toBeVisible();
-  await expect(page.locator(".home-final h2")).toHaveCSS("opacity", "1");
-  await expect(page.locator(".orbit-one")).toHaveCSS(
-    "animation-duration",
-    "1e-06s",
-  );
+  await expect(
+    page.getByRole("heading", { name: /Big question/ }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () =>
+        document.getAnimations().filter((a) => a.playState === "running")
+          .length,
+    ),
+  ).toBe(0);
 });

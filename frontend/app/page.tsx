@@ -1,519 +1,639 @@
-import { T } from "@/components/locale";
 import Link from "next/link";
 import {
-  ArrowDown,
   ArrowRight,
   ArrowUpRight,
   Check,
-  FileCheck2,
   FileText,
-  Layers3,
-  MessageSquare,
-  ScanLine,
-  ShieldCheck,
-  Sparkles,
   Workflow,
+  ShieldCheck,
+  Search,
+  Layers3,
+  Database,
+  Target,
+  MessagesSquare,
+  Route,
+  FolderOpen,
+  GitBranch,
+  Download,
 } from "lucide-react";
+import { T } from "@/components/locale";
 import { Logo } from "@/components/layout/logo";
 import { SiteHeader } from "@/components/layout/site-header";
-import { ProductPreview } from "@/components/landing/product-preview";
-import { ScrollFX } from "@/components/ui/motion";
-import { delay } from "@/lib/utils";
+import {
+  LandingMotion,
+  MotionToggle,
+  RotatingHeadline,
+  BlueprintPreview,
+  SolutionTicker,
+  Reveal,
+} from "@/components/landing/landing-interactions";
+import styles from "@/components/landing/render-home.module.css";
 
-const steps = [
-  {
-    icon: MessageSquare,
-    title: "Start with your challenge.",
-    copy: "A focused conversation gets to the heart of your business, your workflow, and what needs to change.",
-    tag: "01 / DISCOVER",
-  },
-  {
-    icon: ScanLine,
-    title: "Find what’s really going on.",
-    copy: "Connect your answers and documents. Uncover bottlenecks, question assumptions, and weigh the options.",
-    tag: "02 / DIAGNOSE",
-  },
-  {
-    icon: ShieldCheck,
-    title: "Pressure-test the answer.",
-    copy: "An independent review challenges the risks, complexity, and cost before the plan reaches your team.",
-    tag: "03 / CHALLENGE",
-  },
-  {
-    icon: FileCheck2,
-    title: "Make your next move.",
-    copy: "Leave with a practical blueprint: a phased roadmap, success measures, and the evidence behind each decision.",
-    tag: "04 / BUILD YOUR PLAN",
-  },
-];
 const faqs = [
   [
     "Will shift.AI always recommend AI?",
-    "No. The recommendation follows your problem and evidence. It may be simple automation, a better process, existing software, AI, or a combination. Every decision includes the reasoning and alternatives.",
+    "No. The recommendation follows your problem and evidence. It may be simple automation, a better process, existing software, AI, or a combination. The plan explains the reasoning and alternatives.",
   ],
   [
     "What do I need to get started?",
-    "Just a challenge you want to understand. Describe what happens today and what you would like to improve. You can add PDF, DOCX, TXT, CSV, or XLSX documents as you go.",
+    "Just a business challenge you want to understand. Describe what happens today and what you would like to improve. Add PDF, DOCX, TXT, CSV, or XLSX documents when you have them.",
   ],
   [
     "What will I get at the end?",
-    "A reviewed blueprint covering your problem, the recommended solution, a phased roadmap, business value, risks, and next steps. Copy it, download a PDF, or print it.",
+    "A reviewed implementation blueprint with the recommended solution, architecture, relevant data models and ER diagrams, risks, a phased roadmap, and success measures. Download your report as PDF or Word, or copy it to share.",
   ],
   [
     "Can I return to a project later?",
-    "Yes. Your saved projects bring together the discovery conversation, documents, analysis, and blueprint so you can continue where you left off.",
+    "Yes. Your saved projects keep the discovery conversation, documents, analysis, and blueprint together, so you can pick up where you left off.",
   ],
   [
-    "How should I use the recommendations?",
-    "Use them to support your decisions. Scores and estimates are advisory, and assumptions should be validated with your team before you commit resources.",
+    "Can I treat the recommendations as final decisions?",
+    "Use them to support your decisions. Estimates are advisory. Validate assumptions, feasibility, costs, and any security or compliance requirements with your team before committing resources.",
   ],
 ];
+const capabilities = [
+  [
+    MessagesSquare,
+    "Guided discovery",
+    "Questions that build a picture of your workflow, constraints, and goals.",
+  ],
+  [
+    FolderOpen,
+    "Document context",
+    "Bring process notes, requirements, and spreadsheets into the conversation.",
+  ],
+  [
+    Search,
+    "Problem diagnosis",
+    "Separate the underlying bottleneck from its symptoms.",
+  ],
+  [
+    GitBranch,
+    "Solution comparison",
+    "Consider AI, automation, existing software, and process changes.",
+  ],
+  [
+    ShieldCheck,
+    "Independent challenge",
+    "Review the proposal for risk, complexity, and unsupported assumptions.",
+  ],
+  [
+    Database,
+    "Architecture & data",
+    "Understand components, business records, and their relationships.",
+  ],
+  [
+    Route,
+    "Phased roadmaps",
+    "Turn a recommendation into sequenced, practical next steps.",
+  ],
+  [
+    Download,
+    "Shareable blueprints",
+    "Take a structured PDF or Word document into your next meeting.",
+  ],
+] as const;
+
+function Action({
+  children,
+  href = "/project/new",
+  secondary = false,
+}: {
+  children: React.ReactNode;
+  href?: string;
+  secondary?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={secondary ? styles.secondaryButton : styles.primaryButton}
+    >
+      <T text={String(children)} />
+      <ArrowUpRight size={17} aria-hidden />
+    </Link>
+  );
+}
 
 export default function Landing() {
   return (
-    <div className="landing">
-      <ScrollFX progress />
+    <LandingMotion>
+      <div className={styles.announcement}>
+        <span>
+          <T text="From business challenge to implementation blueprint." />
+        </span>
+        <a href="#capabilities">
+          <T text="Explore what’s inside" />
+          <ArrowRight size={14} aria-hidden />
+        </a>
+      </div>
       <SiteHeader />
       <main id="main">
-        <section className="home-hero">
-          <div className="hero-orbit orbit-one" aria-hidden />
-          <div className="hero-orbit orbit-two" aria-hidden />
-          <div className="hero-intro">
-            <span className="hero-kicker enter">
-              <span className="tiny-orange" />
-              <T text={" CLARITY BEFORE COMPLEXITY"} />{" "}
-              <ArrowUpRight size={13} />
-            </span>
-            <h1 className="enter" style={delay(70)}>
-              <T text={"Big possibilities."} />
+        <section className={styles.hero} aria-labelledby="hero-title">
+          <div className={styles.heroCopy}>
+            <div className={styles.eyebrow}>
+              <span className={styles.statusDot} />
+              <T text="CLARITY BEFORE COMPLEXITY" />
+            </div>
+            <h1 id="hero-title">
+              <T text="Your clearest path" />
               <br />
-              <span>
-                <T text={"The right next move."} />
-              </span>
+              <T text="from challenge to" />
+              <br />
+              <RotatingHeadline />
             </h1>
-            <p className="enter" style={delay(140)}>
-              <T
-                text={
-                  "Turn your business challenges into clear, actionable plans."
-                }
-              />
-              <br className="desktop-break" />
-              <T
-                text={
-                  " Find where AI fits, where it doesn’t, and what to do next."
-                }
-              />
-            </p>
-            <div className="hero-cta enter" style={delay(210)}>
-              <Link
-                href="/project/new"
-                className="button button-primary button-lg"
-              >
-                <T text={"Find your next shift "} />
-                <ArrowUpRight size={18} />
-              </Link>
-              <a
-                href="#how-it-works"
-                className="button button-secondary button-lg"
-              >
-                <T text={"Explore the process "} />
-                <ArrowDown size={16} />
-              </a>
-            </div>
-            <div className="hero-assurance enter" style={delay(280)}>
-              <span>
-                <Check size={14} />
-                <T text={" Problem first"} />
-              </span>
-              <span>
-                <Check size={14} />
-                <T text={" Evidence led"} />
-              </span>
-              <span>
-                <Check size={14} />
-                <T text={" Built for action"} />
-              </span>
-            </div>
-          </div>
-          <div className="hero-product enter" style={delay(350)}>
-            <ProductPreview />
-          </div>
-          <div className="hero-caption">
-            <span>
-              <T text={"LESS GUESSWORK. MORE DIRECTION."} />
-            </span>
-            <span>
-              <T text={"A thoughtful workspace for meaningful change."} />
-            </span>
-          </div>
-        </section>
-        <section className="possibility-strip" aria-label="Possible solutions">
-          <span>
-            <T text={"THE RIGHT ANSWER COULD BE"} />
-          </span>
-          <div>
-            <Workflow size={19} />
-            <T text={" Simple automation"} />
-          </div>
-          <div>
-            <Layers3 size={19} />
-            <T text={" Better processes"} />
-          </div>
-          <div>
-            <FileText size={19} />
-            <T text={" Existing software"} />
-          </div>
-          <div>
-            <Sparkles size={19} />
-            <T text={" Thoughtful AI"} />
-          </div>
-        </section>
-        <section id="how-it-works" className="home-section">
-          <div className="home-section-heading reveal">
-            <div>
-              <span className="eyebrow">
-                <T text={"FROM UNCERTAINTY TO A PLAN"} />
-              </span>
-              <h2>
-                <T text={"A little perspective."} />
-                <br />
-                <T text={"A meaningful shift."} />
-              </h2>
-            </div>
             <p>
-              <T text={"You don’t need all the answers to begin."} />
-              <br />
-              <T text={"Just the right place to ask better questions."} />
+              <T text="Understand the real problem. Explore the right solution. Turn your next big question into a plan you can act on." />
             </p>
+            <div className={styles.actions}>
+              <Action>Start your next shift</Action>
+              <Action href="#how-it-works" secondary>
+                See how it works
+              </Action>
+            </div>
+            <div className={styles.heroNote}>
+              <Check size={14} aria-hidden />
+              <T text="Problem first. Evidence led. Built for action." />
+            </div>
           </div>
-          <div className="journey-grid">
-            {steps.map(({ icon: Icon, title, copy, tag }, i) => (
-              <article
-                className="journey-card reveal"
-                style={delay(i * 70)}
-                key={title}
-              >
-                <span className="journey-icon">
-                  <Icon size={23} strokeWidth={1.6} />
+          <BlueprintPreview />
+          <div className={styles.heroBaseline}>
+            <span>01 — A CLEARER WAY FORWARD</span>
+            <MotionToggle />
+          </div>
+        </section>
+        <section className={styles.outcomes} aria-label="Solution approaches">
+          <p className={styles.eyebrow}>
+            <T text="THE RIGHT ANSWER ISN’T ALWAYS MORE TECHNOLOGY" />
+          </p>
+          <div>
+            {[
+              [Workflow, "Simple automation"],
+              [Layers3, "Better processes"],
+              [FolderOpen, "Existing software"],
+              [GitBranch, "Thoughtful AI"],
+            ].map(([Icon, label]) => {
+              const Symbol = Icon as typeof Workflow;
+              return (
+                <span key={String(label)}>
+                  <Symbol size={23} strokeWidth={1.6} aria-hidden />
+                  <T text={String(label)} />
                 </span>
-                <small>{tag}</small>
-                <h3>{title}</h3>
-                <p>{copy}</p>
-                <span className="journey-line" aria-hidden />
-              </article>
+              );
+            })}
+          </div>
+          <a className={styles.textLink} href="#approach">
+            <T text="Find what fits your business" />
+            <ArrowRight size={15} aria-hidden />
+          </a>
+        </section>
+        <section id="how-it-works" className={styles.section}>
+          <Reveal>
+            <span className={styles.eyebrow}>THE PROCESS</span>
+            <h2>
+              <T text="A question. A conversation." />
+              <br />
+              <T text="A clear next move." />
+            </h2>
+          </Reveal>
+          <div className={styles.steps}>
+            <Reveal className={styles.step}>
+              <span className={styles.stepNumber}>1</span>
+              <h3>
+                <T text="Bring your challenge" />
+              </h3>
+              <p>
+                <T text="Tell us what happens today, what slows you down, and what better would look like." />
+              </p>
+              <div className={styles.discoveryDemo}>
+                <span className={styles.miniLabel}>
+                  START WITH WHAT YOU KNOW
+                </span>
+                {[
+                  "Understand a bottleneck",
+                  "Explore an opportunity",
+                  "Improve a workflow",
+                ].map((text, i) => (
+                  <div key={text} data-selected={i === 0}>
+                    <MessagesSquare size={14} />
+                    <span>{text}</span>
+                    {i === 0 && <Check size={14} />}
+                  </div>
+                ))}
+                <span className={styles.demoCaption}>
+                  Illustrative discovery prompts
+                </span>
+              </div>
+            </Reveal>
+            <Reveal className={styles.step}>
+              <span className={styles.stepNumber}>2</span>
+              <h3>
+                <T text="Connect the evidence" />
+              </h3>
+              <p>
+                <T text="Add your context and documents. Explore the root cause and compare practical ways forward." />
+              </p>
+              <div className={styles.evidenceDemo}>
+                <div>
+                  <FileText size={16} />
+                  <span>Current workflow.pdf</span>
+                  <Check size={14} />
+                </div>
+                <div>
+                  <Database size={16} />
+                  <span>Operations data.csv</span>
+                  <Check size={14} />
+                </div>
+                <div className={styles.evidenceLine} />
+                <strong>
+                  <Search size={15} /> A clearer picture emerges
+                </strong>
+                <span className={styles.demoCaption}>
+                  Example documents and analysis
+                </span>
+              </div>
+            </Reveal>
+            <Reveal className={styles.step}>
+              <span className={styles.stepNumber}>3</span>
+              <h3>
+                <T text="Leave with a blueprint" />
+              </h3>
+              <p>
+                <T text="Review a challenged recommendation, a phased roadmap, and the details your team needs to move." />
+              </p>
+              <div className={styles.planDemo}>
+                <span className={styles.miniLabel}>
+                  YOUR IMPLEMENTATION PLAN
+                </span>
+                {[
+                  "Recommended approach",
+                  "Architecture & ER diagram",
+                  "Risks & rollout roadmap",
+                ].map((text) => (
+                  <div key={text}>
+                    <span className={styles.statusDot} />
+                    {text}
+                    <Check size={13} />
+                  </div>
+                ))}
+                <span className={styles.demoCaption}>
+                  Structured. Reviewed. Ready to share.
+                </span>
+              </div>
+            </Reveal>
+          </div>
+        </section>
+        <section
+          className={styles.tickerSection}
+          aria-labelledby="solutions-heading"
+        >
+          <div>
+            <h2 id="solutions-heading">
+              <T text="Whatever your challenge," />
+              <br />
+              <T text="start with clarity." />
+            </h2>
+            <a className={styles.textLink} href="#capabilities">
+              <T text="Explore your workspace" />
+              <ArrowRight size={16} />
+            </a>
+          </div>
+          <SolutionTicker />
+        </section>
+        <section
+          id="capabilities"
+          className={`${styles.section} ${styles.featureSection}`}
+        >
+          <Reveal>
+            <span className={styles.eyebrow}>ONE CONNECTED WORKSPACE</span>
+            <h2>
+              <T text="From scattered information" />
+              <br />
+              <T text="to " />
+              <span className={styles.accent}>
+                <T text="shared direction." />
+              </span>
+            </h2>
+          </Reveal>
+          <div className={styles.featureGrid}>
+            <Reveal className={`${styles.feature} ${styles.manifesto}`}>
+              <span className={styles.miniLabel}>CONTEXT, NOT GUESSWORK</span>
+              <h3>
+                <T text="Bring together your " />
+                <span>
+                  <T text="questions, documents, workflows, constraints, opportunities, and goals." />
+                </span>
+                <T text=" See the whole picture." />
+              </h3>
+              <a href="#approach" className={styles.textLink}>
+                <T text="Our problem-first approach" />
+                <ArrowRight size={15} />
+              </a>
+              <div
+                className={styles.contextDots}
+                data-motion-region
+                aria-hidden
+              >
+                {Array.from({ length: 32 }, (_, i) => (
+                  <i key={i} style={{ "--i": i } as React.CSSProperties} />
+                ))}
+              </div>
+            </Reveal>
+            <Reveal className={styles.feature}>
+              <span className={styles.miniLabel}>
+                DOCUMENTS → UNDERSTANDING
+              </span>
+              <h3>
+                <T text="Your evidence, at the heart of every decision." />
+              </h3>
+              <p>
+                <T text="Keep source documents connected to the analysis. Make the thinking behind the recommendation easy to follow." />
+              </p>
+              <div className={styles.sourceDiagram} data-motion-region>
+                <div>
+                  <FileText size={19} />
+                  <span>Process notes</span>
+                </div>
+                <div>
+                  <Database size={19} />
+                  <span>Business data</span>
+                </div>
+                <svg viewBox="0 0 300 60" aria-hidden>
+                  <path d="M75 0 V20 Q75 30 85 30 H215 Q225 30 225 20 V0 M150 30 V60" />
+                </svg>
+                <strong>
+                  <Search size={18} /> Evidence-led analysis
+                </strong>
+              </div>
+            </Reveal>
+            <Reveal className={`${styles.feature} ${styles.wideFeature}`}>
+              <div>
+                <span className={styles.miniLabel}>
+                  THE NEXT MOVE, IN ORDER
+                </span>
+                <h3>
+                  <T text="A roadmap your team can actually follow." />
+                </h3>
+                <p>
+                  <T text="Break the recommendation into phases. Understand what needs validating, what to build first, and how to measure progress." />
+                </p>
+                <a href="#deliverables" className={styles.textLink}>
+                  <T text="See what’s in the blueprint" />
+                  <ArrowRight size={15} />
+                </a>
+              </div>
+              <div
+                className={styles.roadmapArt}
+                data-motion-region
+                aria-label="Example roadmap: validate, pilot, then roll out"
+              >
+                <div className={styles.roadmapLabels}>
+                  <span>01 / VALIDATE</span>
+                  <span>02 / PILOT</span>
+                  <span>03 / ROLL OUT</span>
+                </div>
+                <svg
+                  viewBox="0 0 560 210"
+                  role="img"
+                  aria-label="Three connected roadmap milestones"
+                >
+                  <path
+                    className={styles.chartGrid}
+                    d="M0 50 H560 M0 110 H560 M0 170 H560 M90 0 V210 M280 0 V210 M470 0 V210"
+                  />
+                  <path
+                    className={styles.chartArea}
+                    d="M0 185 L90 155 L180 155 L280 95 L375 95 L470 35 L560 35 V210 H0Z"
+                  />
+                  <path
+                    className={styles.chartLine}
+                    d="M0 185 L90 155 L180 155 L280 95 L375 95 L470 35 L560 35"
+                  />
+                  {[
+                    [90, 155],
+                    [280, 95],
+                    [470, 35],
+                  ].map(([cx, cy]) => (
+                    <circle key={cx} cx={cx} cy={cy} r="6" />
+                  ))}
+                </svg>
+                <small>Illustrative phases, not a performance forecast</small>
+              </div>
+            </Reveal>
+            <Reveal className={styles.feature}>
+              <span className={styles.miniLabel}>A SECOND PERSPECTIVE</span>
+              <h3>
+                <T text="Good ideas deserve tough questions." />
+              </h3>
+              <p>
+                <T text="An independent red-team review challenges risk, unsupported assumptions, and unnecessary complexity before the final plan." />
+              </p>
+              <div className={styles.reviewDemo}>
+                {[
+                  "Is the approach proportionate?",
+                  "Are the assumptions supported?",
+                  "What could go wrong?",
+                ].map((text, i) => (
+                  <div key={text}>
+                    <ShieldCheck size={17} />
+                    <span>{text}</span>
+                    <span className={styles.reviewIndex}>0{i + 1}</span>
+                  </div>
+                ))}
+              </div>
+            </Reveal>
+            <Reveal className={styles.feature} id="deliverables">
+              <span className={styles.miniLabel}>DETAIL THAT CONNECTS</span>
+              <h3>
+                <T text="Not just an answer. An implementation plan." />
+              </h3>
+              <p>
+                <T text="Architecture, relevant ER diagrams, decisions, and rollout steps. A structured document with the detail that matters." />
+              </p>
+              <div
+                className={styles.erArt}
+                aria-label="Illustrative data model: one project has many documents"
+              >
+                <div>
+                  <strong>Project</strong>
+                  <span>
+                    id <b>PK</b>
+                  </span>
+                  <span>name</span>
+                </div>
+                <svg viewBox="0 0 90 75" role="img" aria-label="One to many">
+                  <path d="M0 38 H90 M12 30 V46 M77 38 L90 28 M77 38 L90 48" />
+                  <text x="16" y="25">
+                    1
+                  </text>
+                  <text x="64" y="25">
+                    N
+                  </text>
+                </svg>
+                <div>
+                  <strong>Document</strong>
+                  <span>
+                    id <b>PK</b>
+                  </span>
+                  <span>
+                    project_id <b>FK</b>
+                  </span>
+                </div>
+              </div>
+              <span className={styles.demoCaption}>
+                Example ER diagram · PDF / Word export
+              </span>
+            </Reveal>
+          </div>
+        </section>
+        <section id="approach" className={styles.approach}>
+          <Reveal className={styles.approachInner}>
+            <span className={styles.eyebrow}>THE SHIFT IN PERSPECTIVE</span>
+            <div className={styles.approachFlow}>
+              <span>“We need an AI tool.”</span>
+              <ArrowRight size={25} aria-hidden />
+              <strong>“What’s the real bottleneck?”</strong>
+            </div>
+            <blockquote>
+              <T text="The best solution isn’t always the most complex one. It’s the one that solves the right problem." />
+            </blockquote>
+            <p>
+              <T text="An invoice delay might need a simpler approval handoff, not a new AI system. shift.AI helps you examine the evidence before choosing the technology." />
+            </p>
+            <span className={styles.miniLabel}>
+              ILLUSTRATIVE EXAMPLE · PROBLEM FIRST, POSSIBILITY NEXT
+            </span>
+          </Reveal>
+        </section>
+        <section className={styles.section} id="workspace">
+          <Reveal>
+            <span className={styles.eyebrow}>BUILT FOR THE WAY YOU THINK</span>
+            <h2>
+              <T text="Everything you need" />
+              <br />
+              <T text="to make your next move." />
+            </h2>
+            <p className={styles.sectionIntro}>
+              <T text="Keep the conversation, evidence, and decisions in one place." />
+            </p>
+          </Reveal>
+          <div className={styles.capabilityGrid}>
+            {capabilities.map(([Icon, title, copy]) => (
+              <Reveal key={title}>
+                <Icon size={23} strokeWidth={1.5} aria-hidden />
+                <h3>
+                  <T text={title} />
+                </h3>
+                <p>
+                  <T text={copy} />
+                </p>
+              </Reveal>
             ))}
           </div>
         </section>
-        <section id="approach" className="approach-section">
-          <div className="approach-inner">
-            <div className="approach-copy reveal">
-              <span className="eyebrow">
-                <T text={"A DIFFERENT STARTING POINT"} />
-              </span>
-              <h2>
-                <T text={"The best solution"} />
-                <br />
-                <T text={"starts with"} />
-                <br />
-                <span>
-                  <T text={"the real problem."} />
-                </span>
-              </h2>
-              <p>
-                <T
-                  text={
-                    "New technology isn’t always the answer. A clearer understanding of how your business works is a much better place to start."
-                  }
-                />
-              </p>
-              <Link href="/project/new" className="button button-primary">
-                <T text={"Let’s find your opportunity "} />
-                <ArrowUpRight size={17} />
-              </Link>
-            </div>
-            <div className="decision-example reveal">
-              <div className="decision-example-top">
-                <span className="eyebrow">
-                  <T text={"A SHIFT IN PERSPECTIVE"} />
-                </span>
-                <span>
-                  <T text={"ILLUSTRATIVE EXAMPLE"} />
-                </span>
-              </div>
-              <div className="initial-thought">
-                <MessageSquare size={20} />
-                <div>
-                  <small>
-                    <T text={"THE INITIAL ASK"} />
-                  </small>
-                  <p>
-                    <T text={"“We need an AI tool to process invoices.”"} />
-                  </p>
-                </div>
-              </div>
-              <div className="example-bridge">
-                <span />
-                <ScanLine size={19} />
-                <p>
-                  <T text={"Look closer at the workflow"} />
-                </p>
-                <span />
-              </div>
-              <div className="closer-look">
-                <small>
-                  <T text={"WHAT THE EVIDENCE SHOWS"} />
-                </small>
-                <h3>
-                  <T text={"The delay is in the handoff."} />
-                </h3>
-                <p>
-                  <T
-                    text={
-                      "Fixed fields. Repeated steps. Two tools that could already talk to each other."
-                    }
-                  />
-                </p>
-                <div className="workflow-mini">
-                  <span>
-                    <T text={"Email"} />
-                  </span>
-                  <ArrowRight size={15} />
-                  <span>
-                    <T text={"Approval"} />
-                  </span>
-                  <ArrowRight size={15} />
-                  <span>
-                    <T text={"Accounting"} />
-                  </span>
-                </div>
-              </div>
-              <div className="example-outcome">
-                <span>
-                  <Check size={20} />
-                </span>
-                <div>
-                  <small>
-                    <T text={"THE RIGHT NEXT MOVE"} />
-                  </small>
-                  <strong>
-                    <T text={"Automate the handoff. Keep it simple."} />
-                  </strong>
-                </div>
-                <ArrowUpRight size={21} />
-              </div>
-            </div>
-          </div>
-        </section>
-        <section id="capabilities" className="home-section">
-          <div className="home-section-heading reveal">
-            <div>
-              <span className="eyebrow">
-                <T text={"EVERYTHING CONNECTS"} />
-              </span>
-              <h2>
-                <T text={"One workspace."} />
-                <br />
-                <T text={"The whole picture."} />
-              </h2>
-            </div>
-            <p>
-              <T text={"From the first question to the final blueprint,"} />
-              <br />
-              <T text={"keep the thinking and the evidence together."} />
-            </p>
-          </div>
-          <div className="feature-bento">
-            <article className="feature-main reveal">
-              <span className="feature-icon">
-                <FileText size={24} />
-              </span>
-              <h3>
-                <T text={"Your evidence."} />
-                <br />
-                <T text={"At the heart of every decision."} />
-              </h3>
-              <p>
-                <T
-                  text={
-                    "Bring your process notes, spreadsheets, and requirements. Turn scattered information into context you can actually use."
-                  }
-                />
-              </p>
-              <div className="evidence-files">
-                <div>
-                  <span className="file-type">
-                    <T text={"PDF"} />
-                  </span>
-                  <div>
-                    <strong>
-                      <T text={"Current workflow.pdf"} />
-                    </strong>
-                    <small>
-                      <T text={"Process notes · Evidence source"} />
-                    </small>
-                  </div>
-                  <Check size={17} />
-                </div>
-                <div>
-                  <span className="file-type green">
-                    <T text={"CSV"} />
-                  </span>
-                  <div>
-                    <strong>
-                      <T text={"Operations overview.csv"} />
-                    </strong>
-                    <small>
-                      <T text={"Team data · Evidence source"} />
-                    </small>
-                  </div>
-                  <Check size={17} />
-                </div>
-                <span className="sample-label">
-                  <T text={"Example documents"} />
-                </span>
-              </div>
-            </article>
-            <article className="feature-small reveal">
-              <ShieldCheck size={27} />
-              <h3>
-                <T text={"A second opinion,"} />
-                <br />
-                <T text={"built right in."} />
-              </h3>
-              <p>
-                <T
-                  text={
-                    "An independent red team reviews the plan for risks, unnecessary complexity, and blind spots."
-                  }
-                />
-              </p>
-              <div className="review-tags">
-                <span>
-                  <T text={"Feasibility"} />
-                </span>
-                <span>
-                  <T text={"Risk"} />
-                </span>
-                <span>
-                  <T text={"Business value"} />
-                </span>
-              </div>
-            </article>
-            <article className="feature-small feature-warm reveal">
-              <FileCheck2 size={27} />
-              <h3>
-                <T text={"A plan that travels"} />
-                <br />
-                <T text={"with you."} />
-              </h3>
-              <p>
-                <T
-                  text={
-                    "Take your blueprint into the next meeting. Share the roadmap and the thinking behind it."
-                  }
-                />
-              </p>
-              <div className="export-tags">
-                <span>
-                  <T text={"Download PDF"} />
-                </span>
-                <span>
-                  <T text={"Copy"} />
-                </span>
-                <span>
-                  <T text={"Print / PDF "} />
-                  <ArrowUpRight size={12} />
-                </span>
-              </div>
-            </article>
-          </div>
-        </section>
-        <section id="faq" className="home-section home-faq">
-          <div className="reveal">
-            <span className="eyebrow">
-              <T text={"A LITTLE MORE CLARITY"} />
-            </span>
+        <section id="faq" className={`${styles.section} ${styles.faqSection}`}>
+          <Reveal>
+            <span className={styles.eyebrow}>BEFORE YOUR FIRST SHIFT</span>
             <h2>
-              <T text={"Good questions."} />
+              <T text="Good questions." />
               <br />
-              <T text={"Straight answers."} />
+              <T text="Straight answers." />
             </h2>
-            <p>
-              <T text={"Here’s what to know before"} />
-              <br />
-              <T text={"your first shift."} />
-            </p>
-          </div>
-          <div className="home-faq-list">
-            {faqs.map(([q, a]) => (
-              <details className="reveal" key={q}>
+          </Reveal>
+          <div className={styles.faqList}>
+            {faqs.map(([question, answer]) => (
+              <details key={question} name="landing-faq">
                 <summary>
-                  {q}
+                  <T text={question} />
                   <span aria-hidden>+</span>
                 </summary>
-                <p>{a}</p>
+                <p>
+                  <T text={answer} />
+                </p>
               </details>
             ))}
           </div>
         </section>
-        <section className="home-final">
-          <div className="reveal">
-            <span className="eyebrow">
-              <T text={"YOUR NEXT CHAPTER STARTS HERE"} />
+        <section className={styles.finalSection}>
+          <div className={styles.floatingTiles} data-motion-region aria-hidden>
+            {[
+              [Search, "Discover"],
+              [FileText, "Evidence"],
+              [Workflow, "Automate"],
+              [ShieldCheck, "Review"],
+              [Target, "Outcomes"],
+              [Database, "Data"],
+              [Route, "Roadmap"],
+              [Layers3, "Blueprint"],
+            ].map(([Icon, label], i) => {
+              const Symbol = Icon as typeof Search;
+              return (
+                <div
+                  key={String(label)}
+                  style={{ "--i": i } as React.CSSProperties}
+                >
+                  <Symbol size={24} />
+                  <span>{String(label)}</span>
+                </div>
+              );
+            })}
+          </div>
+          <Reveal className={styles.finalCard}>
+            <span className={styles.eyebrow}>
+              YOUR NEXT CHAPTER STARTS HERE
             </span>
             <h2>
-              <T text={"Make room for"} />
+              <T text="Big question?" />
               <br />
-              <span>
-                <T text={"your next big shift."} />
-              </span>
+              <T text="Make your next shift." />
             </h2>
             <p>
-              <T text={"Bring the challenge. Leave with direction."} />
+              <T text="Bring the challenge. Leave with direction." />
             </p>
-            <Link
-              href="/project/new"
-              className="button button-primary button-lg"
-            >
-              <T text={"Start your first project "} />
-              <ArrowUpRight size={18} />
-            </Link>
-          </div>
-          <div className="final-orbit" aria-hidden />
+            <Action>Start your first project</Action>
+          </Reveal>
         </section>
       </main>
-      <footer className="home-footer">
-        <div>
-          <Logo />
-          <p>
-            <T text={"Problem first. Possibility next."} />
-          </p>
+      <footer className={styles.footer}>
+        <div className={styles.footerTop}>
+          <div>
+            <Logo />
+            <p>
+              <T text="Problem first." />
+              <br />
+              <T text="Possibility next." />
+            </p>
+          </div>
+          <nav aria-label="Explore">
+            <span>EXPLORE</span>
+            <a href="#how-it-works">How it works</a>
+            <a href="#approach">Our approach</a>
+            <a href="#capabilities">Capabilities</a>
+          </nav>
+          <nav aria-label="Workspace">
+            <span>YOUR WORKSPACE</span>
+            <Link href="/project/new">New project</Link>
+            <Link href="/dashboard">Saved projects</Link>
+            <Link href="/login">Sign in</Link>
+          </nav>
+          <nav aria-label="Resources">
+            <span>GOOD TO KNOW</span>
+            <a href="#deliverables">Your blueprint</a>
+            <a href="#faq">Questions & answers</a>
+            <Link href="/signup">
+              Create an account <ArrowUpRight size={13} />
+            </Link>
+          </nav>
         </div>
-        <nav aria-label="Footer">
-          <a href="#how-it-works">
-            <T text={"How it works"} />
-          </a>
-          <a href="#capabilities">
-            <T text={"The workspace"} />
-          </a>
-          <a href="#faq">
-            <T text={"FAQ"} />
-          </a>
-          <Link href="/login">
-            <T text={"Sign in "} />
-            <ArrowUpRight size={14} />
-          </Link>
-        </nav>
-        <div className="footer-bottom">
-          <span>
-            © {new Date().getFullYear()}
-            <T text={" shift.AI"} />
-          </span>
-          <span>
-            <T text={"A clearer way forward."} />
-          </span>
+        <div className={styles.footerBottom}>
+          <span>© {new Date().getFullYear()} shift.AI</span>
+          <span>A clearer way forward.</span>
+          <a href="#main">Back to top ↑</a>
+        </div>
+        <div className={styles.footerWordmark} aria-hidden>
+          shift<span>.AI</span>
+          <span className={styles.pixelMark}>↗</span>
         </div>
       </footer>
-    </div>
+    </LandingMotion>
   );
 }

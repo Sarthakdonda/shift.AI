@@ -7,7 +7,7 @@ test("landing, discovery, documents, no-AI analysis, reviewed blueprint, and del
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: /Big possibilities/ }),
+    page.getByRole("heading", { name: /Your clearest path/ }),
   ).toBeVisible();
   await expect(page.locator("body")).not.toHaveJSProperty("scrollWidth", 0);
   expect(
@@ -19,7 +19,7 @@ test("landing, discovery, documents, no-AI analysis, reviewed blueprint, and del
     path: `test-results/landing-${testInfo.project.name}.png`,
     fullPage: true,
   });
-  await page.getByRole("link", { name: "Find your next shift" }).click();
+  await page.getByRole("link", { name: "Start your next shift" }).click();
   await page
     .getByRole("button", { name: "Simplify invoice processing" })
     .click();
