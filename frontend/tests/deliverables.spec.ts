@@ -120,8 +120,14 @@ test("sign-up, team administration, seven deliverables, revisions, approval, and
   );
   await page.getByRole("button", { name: "Version history" }).click();
   await expect(page.locator(".version-list button")).toHaveCount(2);
+  await page.getByRole("combobox", { name: "Download format" }).click();
+  await page
+    .getByRole("option", { name: "Word document (.docx)", exact: true })
+    .click();
   const download = page.waitForEvent("download");
-  await page.getByRole("link", { name: "DOCX", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Download file", exact: true })
+    .click();
   expect((await download).suggestedFilename()).toMatch(/\.docx$/);
   await page
     .locator(".deliverable-tabs button")
@@ -149,7 +155,8 @@ test("sign-up, team administration, seven deliverables, revisions, approval, and
   await expect(
     page.getByRole("heading", { name: "Transformation dashboard" }),
   ).toBeVisible();
-  await page.getByLabel("Interface language").selectOption("hi");
+  await page.getByRole("combobox", { name: "Interface language" }).click();
+  await page.getByRole("option", { name: "हिन्दी", exact: true }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "hi");
   expect(errors).toEqual([]);
 });

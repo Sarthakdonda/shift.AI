@@ -1,0 +1,42 @@
+.panel {
+  margin: 18px 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--cream-2, #fffaf2);
+}
+.row {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.format {
+  display: block;
+  width: min(100%, 270px);
+  font-size: 12px;
+  font-weight: 550;
+}
+.hint {
+  align-self: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+.spinner {
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (max-width: 560px) {
+  .format {
+    width: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+}

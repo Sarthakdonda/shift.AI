@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState, useEffect, useCallback } from "react";
 import { Shell } from "@/components/layout/shell";
 import { Section } from "@/components/analysis/report";
+import { Select } from "@/components/ui/select";
 import { api, post, humanize } from "@/lib/api";
 import type { Project } from "@/lib/types";
 import type { Assessment } from "@/lib/deliverables";
@@ -179,18 +180,19 @@ export default function Transformation() {
         >
           <label>
             <T text={"Project"} />
-            <select
+            <Select
+              aria-label="Project"
               required
               value={pid}
-              onChange={(e) => setPid(e.target.value)}
-            >
-              <option value="">Choose a project</option>
-              {rows.map((r) => (
-                <option key={r.project.id} value={r.project.id}>
-                  {r.project.name}
-                </option>
-              ))}
-            </select>
+              onValueChange={setPid}
+              options={[
+                { value: "", label: "Choose a project" },
+                ...rows.map((r) => ({
+                  value: r.project.id,
+                  label: r.project.name,
+                })),
+              ]}
+            />
           </label>
           <div className="two-columns">
             <label>

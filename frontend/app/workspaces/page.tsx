@@ -6,6 +6,7 @@ import { MicrosoftConnection } from "@/components/integrations";
 import { useState, useEffect, useCallback } from "react";
 import { Shell } from "@/components/layout/shell";
 import { Section } from "@/components/analysis/report";
+import { Select } from "@/components/ui/select";
 import { api, post, API_BASE } from "@/lib/api";
 import type { Workspace } from "@/lib/deliverables";
 import { ConfirmDialog } from "@/components/ui/feedback";
@@ -184,22 +185,23 @@ export default function Workspaces() {
       </div>
       <label>
         <T text={"Workspace"} />
-        <select
+        <Select
+          aria-label="Workspace"
           value={wid}
-          onChange={(e) => {
-            setWid(e.target.value);
+          onValueChange={(value) => {
+            setWid(value);
             setInvitation("");
             setMembers([]);
             setAdmin(null);
           }}
-        >
-          <option value="">Choose a workspace</option>
-          {spaces.map((w) => (
-            <option key={w.id} value={w.id}>
-              {w.name} · {w.access_role}
-            </option>
-          ))}
-        </select>
+          options={[
+            { value: "", label: "Choose a workspace" },
+            ...spaces.map((w) => ({
+              value: w.id,
+              label: `${w.name} · ${w.access_role}`,
+            })),
+          ]}
+        />
       </label>
       {selected && (
         <>
@@ -237,25 +239,25 @@ export default function Workspaces() {
                       <td>
                         {selected.access_role === "owner" &&
                         m.role !== "owner" ? (
-                          <select
+                          <Select
                             aria-label={`Role for ${m.name}`}
                             value={m.role}
                             disabled={busy}
-                            onChange={(e) =>
+                            onValueChange={(value) =>
                               void perform(() =>
                                 post(
                                   `/workspaces/${wid}/members/${encodeURIComponent(m.user_id)}`,
-                                  { role: e.target.value },
+                                  { role: value },
                                 ),
                               )
                             }
-                          >
-                            {["admin", "editor", "reviewer", "viewer"].map(
-                              (r) => (
-                                <option key={r}>{r}</option>
-                              ),
-                            )}
-                          </select>
+                            options={[
+                              "admin",
+                              "editor",
+                              "reviewer",
+                              "viewer",
+                            ].map((value) => ({ value, label: value }))}
+                          />
                         ) : (
                           m.role
                         )}
@@ -287,14 +289,14 @@ export default function Workspaces() {
               <>
                 <label>
                   <T text={"Invite with role"} />
-                  <select
+                  <Select
+                    aria-label="Invite with role"
                     value={role}
-                    onChange={(e) => setRole(e.target.value)}
-                  >
-                    {["editor", "reviewer", "viewer", "admin"].map((r) => (
-                      <option key={r}>{r}</option>
-                    ))}
-                  </select>
+                    onValueChange={setRole}
+                    options={["editor", "reviewer", "viewer", "admin"].map(
+                      (value) => ({ value, label: value }),
+                    )}
+                  />
                 </label>
                 <button
                   className="button button-secondary"

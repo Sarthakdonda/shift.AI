@@ -6,9 +6,11 @@ import { useRouter } from "next/navigation";
 import { use, useState, useEffect, useCallback } from "react";
 import { Shell } from "@/components/layout/shell";
 import { Section, Findings } from "@/components/analysis/report";
+import { Select } from "@/components/ui/select";
 import { DeliverableReport } from "@/components/deliverables/report";
 import { DeliverableEditor } from "@/components/deliverables/editor";
-import { api, post, API_BASE, humanize } from "@/lib/api";
+import { DeliverableDownload } from "@/components/deliverables/download";
+import { api, post, humanize } from "@/lib/api";
 import { languages, blankDeliverable } from "@/lib/deliverables";
 import type {
   Artifact,
@@ -122,19 +124,21 @@ export default function Deliverables({
   return (
     <Shell projectId={id} projectName={project?.name}>
       <div className="page-heading">
-        <span className="eyebrow">
-          <T text={"Implementation studio"} />
-        </span>
-        <h1>
-          <T text={"Deliverables"} />
-        </h1>
-        <p>
-          <T
-            text={
-              "Build a complete design pack, challenge assumptions, and track every revision."
-            }
-          />
-        </p>
+        <div>
+          <span className="eyebrow">
+            <T text={"Implementation studio"} />
+          </span>
+          <h1>
+            <T text={"Deliverables"} />
+          </h1>
+          <p>
+            <T
+              text={
+                "Build a complete design pack, challenge assumptions, and track every revision."
+              }
+            />
+          </p>
+        </div>
       </div>
       {error && (
         <p role="alert" className="error-box">
@@ -153,16 +157,15 @@ export default function Deliverables({
           <div className="studio-controls no-print">
             <label>
               <T text={"Output language"} />
-              <select
+              <Select
+                aria-label="Output language"
                 value={language}
-                onChange={(e) => setLanguage(e.target.value)}
-              >
-                {Object.entries(languages).map(([code, label]) => (
-                  <option key={code} value={code}>
-                    {label}
-                  </option>
-                ))}
-              </select>
+                onValueChange={setLanguage}
+                options={Object.entries(languages).map(([value, label]) => ({
+                  value,
+                  label,
+                }))}
+              />
             </label>
             <label>
               <T text={"Feedback for the next generation"} />
@@ -274,33 +277,14 @@ export default function Deliverables({
               >
                 <T text={"Version history"} />
               </button>
-              {artifact && (
-                <>
-                  <button
-                    className="button button-ghost"
-                    onClick={() => window.print()}
-                  >
-                    <T text={"Print / PDF"} />
-                  </button>
-                  {[
-                    "docx",
-                    "xlsx",
-                    "pptx",
-                    "md",
-                    "zip",
-                    ...(kind === "process" ? ["bpmn"] : []),
-                  ].map((fmt) => (
-                    <a
-                      className="button button-ghost"
-                      key={fmt}
-                      href={`${API_BASE}/api/projects/${id}/export/${kind}/${fmt}?version=${artifact.version}`}
-                    >
-                      {fmt.toUpperCase()}
-                    </a>
-                  ))}
-                </>
-              )}
             </div>
+            <DeliverableDownload
+              key={kind}
+              projectId={id}
+              kind={kind}
+              version={artifact?.version}
+              editing={!!draft}
+            />
             {state.jobs[kind]?.status === "error" && (
               <p role="alert" className="error-box">
                 {state.jobs[kind].error}

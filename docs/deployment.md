@@ -78,6 +78,8 @@ Email sign-in and signup check `/api/health` before submitting credentials. If t
 
 ## Verification
 
+September 21, 2026: deployed themed dropdowns and deliverable downloads to Vercel (`dpl_Cw6N6Kt6dtFjr8Ww5S25QvQMFxg2`). Language, workspace, role, project, and export selectors use a shared accessible component with an 8px menu offset. Deliverables now offer a format selector and authenticated file downloads with loading/error feedback, including actual PDF exports. Render deployed the compact deliverable schema fix (`dep-daodclh7lnhs73ete0ng`, commit `1db23e5`), preserving full local validation. Verification: 56 backend tests, six desktop/mobile browser tests, lint, and an isolated production build passed. Live dropdown selection passed at 1440px and 390px; the production backend reported a connected database. Synthetic Gemini requests reproduced the original HTTP 400; the compact schema instead reached a temporary provider high-demand HTTP 503, so a successful live generation could not be confirmed. Temporary verification files were removed and test ports 3011/8011 were closed.
+
 Check `https://shiftai-five.vercel.app/backend/api/health`: expect `status: ok`, `database: connected`, `gemini_configured: true`, and `local_access_enabled: false`.
 Signed-out requests to `/backend/api/projects` must return 401. Login and signup should use `/backend/api/auth/*`, never a localhost URL.
 

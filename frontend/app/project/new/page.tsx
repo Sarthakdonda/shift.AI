@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Shell } from "@/components/layout/shell";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { ErrorBox } from "@/components/ui/states";
 import { api, post } from "@/lib/api";
 import { languages, type Workspace } from "@/lib/deliverables";
@@ -197,36 +198,33 @@ export default function NewProject() {
           </label>
           <label>
             <T text={"Workspace"} />
-            <select
+            <Select
+              aria-label="Workspace"
               value={workspaceId}
-              onChange={(e) => setWorkspaceId(e.target.value)}
+              onValueChange={setWorkspaceId}
               disabled={busy}
-            >
-              <option value="">Personal workspace</option>
-              {workspaces
-                .filter((w) =>
-                  ["owner", "admin", "editor"].includes(w.access_role),
-                )
-                .map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {w.name}
-                  </option>
-                ))}
-            </select>
+              options={[
+                { value: "", label: "Personal workspace" },
+                ...workspaces
+                  .filter((w) =>
+                    ["owner", "admin", "editor"].includes(w.access_role),
+                  )
+                  .map((w) => ({ value: w.id, label: w.name })),
+              ]}
+            />
           </label>
           <label>
             <T text={"Conversation language"} />
-            <select
+            <Select
+              aria-label="Conversation language"
               value={language}
-              onChange={(e) => setLanguage(e.target.value)}
+              onValueChange={setLanguage}
               disabled={busy}
-            >
-              {Object.entries(languages).map(([code, label]) => (
-                <option key={code} value={code}>
-                  {label}
-                </option>
-              ))}
-            </select>
+              options={Object.entries(languages).map(([value, label]) => ({
+                value,
+                label,
+              }))}
+            />
           </label>
           <label>
             <T text={"What’s the challenge?"} />

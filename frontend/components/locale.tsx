@@ -10,6 +10,7 @@ import {
 import { languages } from "@/lib/deliverables";
 import { post } from "@/lib/api";
 import catalog from "@/lib/ui_catalog.json";
+import { Select } from "@/components/ui/select";
 const knownLabels = new Set(catalog);
 const keys = [
   "Projects",
@@ -506,19 +507,18 @@ export function LanguagePicker() {
   const { language, setLanguage, translate, busy, error } = useLocale();
   return (
     <div className="no-print">
-      <select
+      <Select
         className="locale-picker"
+        compact
         aria-label="Interface language"
         value={language}
         disabled={busy}
-        onChange={(e) => setLanguage(e.target.value)}
-      >
-        {Object.entries(languages).map(([k, v]) => (
-          <option value={k} key={k}>
-            {v}
-          </option>
-        ))}
-      </select>
+        onValueChange={setLanguage}
+        options={Object.entries(languages).map(([value, label]) => ({
+          value,
+          label,
+        }))}
+      />
       {language !== "en" && (
         <button
           className="text-button"
