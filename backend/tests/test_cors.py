@@ -1,7 +1,16 @@
 import pytest
+from app.core.config import Settings
 
 
-@pytest.mark.parametrize('origin', ['http://localhost:3000', 'http://localhost:3001'])
+@pytest.fixture
+def setup(setup, monkeypatch):
+    """Assert the shipped default origins, not whatever backend/.env happens to hold."""
+    _, _, _, settings = setup
+    monkeypatch.setattr(settings, 'cors_origins', Settings.model_fields['cors_origins'].default)
+    return setup
+
+
+@pytest.mark.parametrize('origin', ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3100'])
 @pytest.mark.parametrize('path', ['/api/health', '/api/projects'])
 def test_dashboard_preflight_and_reads(setup, origin, path):
     client, *_ = setup
@@ -30,6 +39,23 @@ def test_project_write_from_port_3001(setup):
     response = client.post('/api/projects', headers={'Origin': origin}, json={
         'name': 'Alternate frontend port',
         'initial_problem': 'Verify that the frontend can create projects from port 3001.',
+    })
+    assert response.status_code == 201
+    assert response.headers['access-control-allow-origin'] == origin
+
+
+def test_project_write_from_app_frontend_port(setup):
+    client, *_ = setup
+    origin = 'http://localhost:3100'
+    response = client.options('/api/projects', headers={
+        'Origin': origin,
+        'Access-Control-Request-Method': 'POST',
+        'Access-Control-Request-Headers': 'content-type',
+    })
+    assert response.status_code == 200
+    response = client.post('/api/projects', headers={'Origin': origin}, json={
+        'name': 'Android app frontend',
+        'initial_problem': 'Verify that the phone app can create projects from port 3100.',
     })
     assert response.status_code == 201
     assert response.headers['access-control-allow-origin'] == origin

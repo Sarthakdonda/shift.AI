@@ -1,4 +1,8 @@
-"""Start the ordinary development servers for the Android Wi-Fi app."""
+"""Start the servers the Android app needs: the API and the app frontend.
+
+The website in ../frontend is a separate surface and is intentionally not
+started here; run it yourself when you want it.
+"""
 from pathlib import Path
 import os
 import socket
@@ -7,6 +11,8 @@ import sys
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
+APP_PORT = 3100
+API_PORT = 8000
 
 
 def listening(port):
@@ -16,21 +22,26 @@ def listening(port):
 
 
 def main():
+    npm = 'npm.cmd' if os.name == 'nt' else 'npm'
     children = []
     try:
         for port, cwd, command in [
-            (8000, ROOT / 'backend', [sys.executable, 'run.py', '--lan']),
-            (3000, ROOT / 'frontend', ['npm.cmd' if os.name == 'nt' else 'npm', 'run', 'dev', '--', '--hostname', '0.0.0.0', '--port', '3000']),
+            (API_PORT, ROOT / 'backend', [sys.executable, 'run.py', '--lan']),
+            (APP_PORT, ROOT / 'appfrontend',
+             [npm, 'run', 'dev', '--', '--hostname', '0.0.0.0', '--port', str(APP_PORT)]),
         ]:
             if listening(port):
                 print(f'Port {port} is already running; leaving that server alone.', flush=True)
-                if port == 8000:
+                if port == API_PORT:
                     print('If the phone cannot connect, restart that backend yourself with: python run.py --lan', flush=True)
             else:
+                if port == APP_PORT and not (ROOT / 'appfrontend/node_modules').is_dir():
+                    print('Install the app frontend first: cd appfrontend && npm.cmd ci', flush=True)
+                    return 1
                 flags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0
                 children.append(subprocess.Popen(command, cwd=cwd, creationflags=flags))
         print('\nKeep this window open. Connect the phone to the same Wi-Fi, then open Shift AI.\n'
-              'Use Find server in the app if your computer address changes. Ctrl+C stops servers started here.\n', flush=True)
+              'The Android app reconnects automatically, even if your computer address changes. Ctrl+C stops servers started here.\n', flush=True)
         while children and all(child.poll() is None for child in children):
             time.sleep(1)
         return 0 if not children else 1

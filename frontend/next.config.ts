@@ -19,16 +19,32 @@ const config: NextConfig = {
       : [];
   },
   async headers() {
-    return ["/login", "/signup"].map((source) => ({
-      source,
-      headers: [
-        {
-          key: "Cross-Origin-Opener-Policy",
-          value: "same-origin-allow-popups",
-        },
-        { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-      ],
-    }));
+    return [
+      ...["/login", "/signup"].map((source) => ({
+        source,
+        headers: [
+          {
+            key: "Cross-Origin-Opener-Policy",
+            value: "same-origin-allow-popups",
+          },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        ],
+      })),
+      {
+        source: "/downloads/shift-ai.apk",
+        headers: [
+          {
+            key: "Content-Type",
+            value: "application/vnd.android.package-archive",
+          },
+          {
+            key: "Content-Disposition",
+            value: 'attachment; filename="shift-ai.apk"',
+          },
+          { key: "Cache-Control", value: "public, max-age=0, must-revalidate" },
+        ],
+      },
+    ];
   },
 };
 export default config;

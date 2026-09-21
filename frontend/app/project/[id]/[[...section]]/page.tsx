@@ -630,8 +630,18 @@ export default function Workspace({
                         setDownloadingPdf(true);
                         setError("");
                         try {
+                          const exportUrl = `${API_BASE}/api/projects/${id}/export/blueprint/pdf?version=${blueprint.version}`;
+                          if (navigator.userAgent.includes("ShiftAIAndroid/")) {
+                            const link = document.createElement("a");
+                            link.href = exportUrl;
+                            document.body.appendChild(link);
+                            link.click();
+                            link.remove();
+                            setNotice("Download requested. Check Downloads on your device.");
+                            return;
+                          }
                           const response = await fetch(
-                            `${API_BASE}/api/projects/${id}/export/blueprint/pdf?version=${blueprint.version}`,
+                            exportUrl,
                             { credentials: "include", signal: AbortSignal.timeout(120000) },
                           );
                           if (!response.ok) {

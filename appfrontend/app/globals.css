@@ -1,0 +1,6 @@
+/* shift.AI app design system. Hand-written CSS only: no utility framework to
+   parse at runtime, no website layers, and no styles the shell cannot use. */
+@import "./styles/base.css";
+@import "./styles/controls.css";
+@import "./styles/chat.css";
+@import "./styles/screens.css";

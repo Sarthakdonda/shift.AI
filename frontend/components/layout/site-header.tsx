@@ -18,6 +18,7 @@ const links = [
   ["#how-it-works", "How it works"],
   ["#approach", "Our approach"],
   ["#faq", "Resources"],
+  ["#android-app", "Android app"],
 ] as const;
 export function SiteHeader() {
   const [open, setOpen] = useState(false);

@@ -6,6 +6,9 @@ import threading
 
 DISCOVERY_PORT = 45831
 PROTOCOL = 'shift-ai-discover-v1'
+# The Android shell loads appfrontend; the website keeps its own port.
+APP_PORT = 3100
+WEB_PORTS = (3000, 3001)
 
 
 def lan_addresses():
@@ -15,7 +18,7 @@ def lan_addresses():
 
 def lan_origins():
     return [f'http://{host}:{port}' for host in [*lan_addresses(), socket.gethostname(), socket.gethostname() + '.local']
-            for port in (3000, 3001)]
+            for port in (*WEB_PORTS, APP_PORT)]
 
 
 def discovery_response(data, peer, api_port=8000):
@@ -31,8 +34,10 @@ def discovery_response(data, peer, api_port=8000):
     nonce = request.get('nonce')
     if not isinstance(nonce, str) or not 1 <= len(nonce) <= 64:
         return None
+    # 'port' stays the website port for older installed apps; 'app_port' is the
+    # phone app that the current shell looks for.
     return json.dumps({'service': PROTOCOL, 'nonce': nonce, 'name': socket.gethostname(),
-                       'port': 3000, 'api_port': api_port}).encode()
+                       'port': WEB_PORTS[0], 'app_port': APP_PORT, 'api_port': api_port}).encode()
 
 
 def start_discovery(api_port=8000):

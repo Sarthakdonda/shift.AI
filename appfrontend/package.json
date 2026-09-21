@@ -1,0 +1,29 @@
+{
+  "name": "shift-ai-appfrontend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Native-feeling mobile app frontend for the Shift AI Android shell. Shares the backend with the website in ../frontend.",
+  "scripts": {
+    "dev": "next dev --port 3100",
+    "dev:lan": "next dev --hostname 0.0.0.0 --port 3100",
+    "build": "next build",
+    "start": "next start --port 3100",
+    "lint": "eslint .",
+    "typecheck": "next typegen && tsc --noEmit"
+  },
+  "dependencies": {
+    "@fontsource-variable/inter": "5.3.0",
+    "lucide-react": "0.577.0",
+    "next": "16.3.4",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.1",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.4",
+    "typescript": "5.9.3"
+  }
+}

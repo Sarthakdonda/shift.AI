@@ -553,6 +553,38 @@ export default function Landing() {
             ))}
           </div>
         </section>
+        <section
+          id="android-app"
+          className={`${styles.section} ${styles.androidSection}`}
+        >
+          <Reveal className={styles.androidCard}>
+            <div>
+              <span className={styles.androidLabel}>shift.AI for Android</span>
+              <h2>
+                <T text="Your next move. Wherever you are." />
+              </h2>
+              <p>
+                <T text="Keep your questions, projects, and next steps close. Sign in to pick up where you left off." />
+              </p>
+            </div>
+            <div className={styles.androidDownload}>
+              <a
+                className={styles.androidButton}
+                href="/downloads/shift-ai.apk"
+                download="shift-ai.apk"
+              >
+                <Download size={20} aria-hidden />
+                <T text="Download for Android" />
+              </a>
+              <span>
+                <T text="Android 8 or later · Internet required" />
+              </span>
+              <p>
+                <T text="Open the downloaded APK to install." />
+              </p>
+            </div>
+          </Reveal>
+        </section>
         <section className={styles.finalSection}>
           <div className={styles.floatingTiles} data-motion-region aria-hidden>
             {[
@@ -619,6 +651,7 @@ export default function Landing() {
             <span>GOOD TO KNOW</span>
             <a href="#deliverables">Your blueprint</a>
             <a href="#faq">Questions & answers</a>
+            <a href="#android-app">Download Android app</a>
             <Link href="/signup">
               Create an account <ArrowUpRight size={13} />
             </Link>

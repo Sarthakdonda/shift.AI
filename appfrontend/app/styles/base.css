@@ -1,0 +1,610 @@
+/* =========================================================================
+   shift.AI app — foundation
+   A native application surface, not a web page: one fixed frame, inner
+   scroll regions only, compositor-only motion, and touch-first sizing.
+   ========================================================================= */
+
+:root {
+  /* Canvas and surfaces */
+  --bg: #fbfaf8;
+  --surface: #ffffff;
+  --surface-2: #f4f1ed;
+  --surface-3: #ece7e1;
+  --elevated: #ffffff;
+
+  /* Ink */
+  --ink: #141b23;
+  --ink-2: #4a5561;
+  --ink-3: #79838f;
+  --ink-4: #a2aab3;
+
+  /* Lines */
+  --line: rgba(11, 19, 32, 0.08);
+  --line-2: rgba(11, 19, 32, 0.13);
+  --line-3: rgba(11, 19, 32, 0.2);
+
+  /* Brand */
+  --accent: #ff7a00;
+  --accent-press: #ec6f00;
+  --accent-ink: #8f4200;
+  --accent-soft: #fff1e0;
+  --accent-line: #ffd9b3;
+  --navy: #0b1320;
+  --cream: #fff4e6;
+
+  /* Semantic */
+  --good: #1f7a4d;
+  --good-soft: #e8f6ee;
+  --warn: #9a6400;
+  --warn-soft: #fff5e0;
+  --danger: #bf3226;
+  --danger-soft: #fdedeb;
+
+  /* Elevation — kept shallow so scrolling never repaints large shadows */
+  --shadow-1: 0 1px 2px rgba(11, 19, 32, 0.05);
+  --shadow-2: 0 4px 14px -6px rgba(11, 19, 32, 0.16);
+  --shadow-3: 0 18px 44px -18px rgba(11, 19, 32, 0.32);
+
+  /* Radii */
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-xl: 26px;
+  --r-full: 999px;
+
+  /* Motion */
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-soft: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --t-fast: 130ms;
+  --t: 220ms;
+  --t-slow: 320ms;
+
+  /* Frame metrics */
+  --bar-h: 54px;
+  --tabs-h: 58px;
+  --gutter: 16px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+
+  color-scheme: light;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family:
+    "Inter Variable", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  font-synthesis-weight: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  /* Chrome belongs to the app; only prose and fields are selectable. */
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+input,
+textarea,
+[contenteditable],
+.selectable,
+.prose {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+}
+
+button {
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+button:disabled {
+  cursor: default;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-weight: 620;
+  letter-spacing: -0.021em;
+  line-height: 1.28;
+}
+
+h1 {
+  font-size: 25px;
+}
+h2 {
+  font-size: 19px;
+}
+h3 {
+  font-size: 16px;
+}
+
+small {
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+ul,
+ol {
+  list-style: none;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+svg {
+  flex: none;
+}
+
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+::placeholder {
+  color: var(--ink-4);
+}
+
+/* -------------------------------------------------------------------------
+   The frame
+   ------------------------------------------------------------------------- */
+
+.frame {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  padding: var(--safe-top) var(--safe-right) var(--safe-bottom)
+    var(--safe-left);
+  background: var(--bg);
+}
+
+/* Scroll regions: the only things that move. */
+.scroll {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  /* Promote to its own layer so scrolling never repaints the bars. */
+  transform: translateZ(0);
+}
+
+.scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.pad {
+  padding: 18px var(--gutter) 26px;
+}
+
+.pad-bottom {
+  padding-bottom: 34px;
+}
+
+/* -------------------------------------------------------------------------
+   App bar
+   ------------------------------------------------------------------------- */
+
+.bar {
+  position: relative;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px;
+  min-height: var(--bar-h);
+  padding: 0 8px;
+  background: var(--bg);
+  border-bottom: 1px solid transparent;
+  transition: border-color var(--t) var(--ease-soft);
+}
+
+.bar[data-scrolled="true"] {
+  border-bottom-color: var(--line);
+}
+
+.bar-title {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+}
+
+.bar-title strong {
+  overflow: hidden;
+  font-size: 15.5px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bar-title span {
+  overflow: hidden;
+  color: var(--ink-3);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bar-lead,
+.bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.bar-actions {
+  justify-content: flex-end;
+  min-width: 44px;
+}
+
+/* Round 44px hit targets with a native press response. */
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-full);
+  color: var(--ink-2);
+  transition:
+    background var(--t-fast) linear,
+    transform var(--t-fast) var(--ease);
+}
+
+.icon-btn:active:not(:disabled) {
+  background: var(--surface-2);
+  transform: scale(0.9);
+}
+
+.icon-btn:disabled {
+  color: var(--ink-4);
+}
+
+.icon-btn.accent {
+  color: var(--accent-ink);
+}
+
+/* -------------------------------------------------------------------------
+   Tab bar
+   ------------------------------------------------------------------------- */
+
+.tabs {
+  position: relative;
+  z-index: 20;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  align-items: stretch;
+  min-height: var(--tabs-h);
+  padding: 4px 6px 6px;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+}
+
+.tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border-radius: var(--r-md);
+  color: var(--ink-3);
+  font-size: 10.5px;
+  font-weight: 550;
+  letter-spacing: 0.01em;
+  transition:
+    color var(--t-fast) linear,
+    transform var(--t-fast) var(--ease);
+}
+
+.tab svg {
+  transition: transform var(--t) var(--ease);
+}
+
+.tab[data-active="true"] {
+  color: var(--ink);
+}
+
+.tab[data-active="true"] svg {
+  color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.tab:active {
+  transform: scale(0.94);
+}
+
+/* -------------------------------------------------------------------------
+   Screen transitions — transform and opacity only
+   ------------------------------------------------------------------------- */
+
+.screen {
+  position: relative;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  min-height: 0;
+  animation: screen-in var(--t-slow) var(--ease) both;
+}
+
+@keyframes screen-in {
+  from {
+    opacity: 0;
+    transform: translate3d(14px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.screen[data-depth="root"] {
+  animation-name: screen-fade;
+}
+
+@keyframes screen-fade {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 6px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* Staggered list entrance. Capped so long lists never animate off-screen rows. */
+.rise {
+  animation: rise var(--t-slow) var(--ease) both;
+  animation-delay: var(--delay, 0ms);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.spin {
+  animation: spin 900ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+  .spin {
+    animation-duration: 900ms !important;
+    animation-iteration-count: infinite !important;
+  }
+}
+
+/* -------------------------------------------------------------------------
+   Prose
+   ------------------------------------------------------------------------- */
+
+.prose {
+  font-size: 15.5px;
+  line-height: 1.62;
+  overflow-wrap: anywhere;
+}
+
+.prose > * + * {
+  margin-top: 11px;
+}
+
+.prose strong {
+  font-weight: 620;
+}
+
+.prose ul,
+.prose ol {
+  display: grid;
+  gap: 7px;
+  padding-left: 3px;
+}
+
+.prose li {
+  display: grid;
+  grid-template-columns: 15px minmax(0, 1fr);
+  gap: 4px;
+}
+
+.prose li::before {
+  content: "•";
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.prose ol {
+  counter-reset: prose;
+}
+
+.prose ol li {
+  counter-increment: prose;
+}
+
+.prose ol li::before {
+  content: counter(prose) ".";
+  color: var(--ink-3);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.prose code {
+  padding: 1px 5px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 0.9em;
+}
+
+.prose pre {
+  overflow-x: auto;
+  padding: 12px 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.55;
+  -webkit-overflow-scrolling: touch;
+}
+
+.prose h4 {
+  margin-top: 16px;
+  font-size: 15px;
+}
+
+.preserve {
+  white-space: pre-wrap;
+}
+
+/* -------------------------------------------------------------------------
+   Small shared helpers
+   ------------------------------------------------------------------------- */
+
+.muted {
+  color: var(--ink-3);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.row-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.stack {
+  display: grid;
+  gap: 12px;
+}
+
+.stack-lg {
+  display: grid;
+  gap: 18px;
+}
+
+.eyebrow {
+  color: var(--ink-3);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.085em;
+  text-transform: uppercase;
+}
+
+.divider {
+  height: 1px;
+  background: var(--line);
+}
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clamp-2 {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.clamp-3 {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

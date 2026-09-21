@@ -19,6 +19,18 @@ def service():
     return ProjectService(get_store(), get_gemini())
 
 
+@router.get('/health/live')
+def liveness():
+    """Fast process/config check used by local clients before opening the UI."""
+    s = get_settings()
+    return {
+        'status': 'ok',
+        'gemini_configured': bool(s.gemini_keys),
+        'google_configured': bool(s.google_client_id),
+        'google_client_id': s.google_client_id,
+    }
+
+
 @router.get('/health')
 def health():
     s = get_settings()

@@ -39,13 +39,23 @@ export function DeliverableDownload({
     setError("");
     setNotice("");
     try {
-      const response = await fetch(
-        `${API_BASE}/api/projects/${projectId}/export/${kind}/${format}?version=${version}`,
-        {
-          credentials: "include",
-          signal: AbortSignal.timeout(120000),
-        },
-      );
+      const exportUrl = `${API_BASE}/api/projects/${projectId}/export/${kind}/${format}?version=${version}`;
+      // Android's DownloadManager handles authenticated HTTP files, not blob URLs.
+      if (navigator.userAgent.includes("ShiftAIAndroid/")) {
+        const link = document.createElement("a");
+        link.href = exportUrl;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setNotice(
+          `Download requested for version ${version}. Check Downloads on your device.`,
+        );
+        return;
+      }
+      const response = await fetch(exportUrl, {
+        credentials: "include",
+        signal: AbortSignal.timeout(120000),
+      });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
         throw new Error(

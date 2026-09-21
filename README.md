@@ -52,7 +52,7 @@ GEMINI_API_KEY=your_gemini_api_key
 GEMINI_MODEL=gemini-2.5-flash
 MONGODB_URI=your_complete_mongodb_atlas_connection_string
 MONGODB_DATABASE=shift_ai
-CORS_ORIGINS=http://localhost:3000,http://localhost:3001
+CORS_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:3100
 ```
 
 The MongoDB URI starts with `mongodb+srv://` and must be on a single line without quotes, spaces, or Markdown escape backslashes. Encode reserved characters in a username/password when constructing the URI. In Atlas, add your computer's current public IP under Network Access and ensure the database user has read/write permission on `shift_ai`.
@@ -69,6 +69,15 @@ No activation or navigation into `.venv/Scripts` is needed. Press Ctrl+C to stop
 
 ### 2. Frontend
 
+There are two frontends over one backend:
+
+- **`frontend/`** — the website, including the landing page. Port 3000.
+- **`appfrontend/`** — the phone application the Android app loads. No landing
+  page, native app layout. Port 3100. See
+  [appfrontend/README.md](appfrontend/README.md).
+
+For the website:
+
 ```powershell
 cd frontend
 Copy-Item .env.local.example .env.local
@@ -78,9 +87,12 @@ npm.cmd run dev
 
 Open **<http://localhost:3000>**. The default API URL is already configured. `npm.cmd` avoids Windows PowerShell execution-policy issues with `npm.ps1`.
 
+For the phone app, run the same three commands in `appfrontend` and open
+**<http://localhost:3100>**. Both can run at the same time.
+
 If Next.js selects port **3001** because 3000 is occupied, open <http://localhost:3001>.
-The backend allows both local origins by default. Existing `.env` files must include both in
-`CORS_ORIGINS=http://localhost:3000,http://localhost:3001`; restart the backend after editing this setting.
+The backend allows the local website and app origins by default. Existing `.env` files must include all three in
+`CORS_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:3100`; restart the backend after editing this setting.
 For any other frontend port, add its exact origin to that comma-separated list.
 
 On macOS/Linux, use `.venv/bin/python` for Python commands and `npm` instead of `npm.cmd`. Use `cp` to copy environment templates.
@@ -88,8 +100,8 @@ On macOS/Linux, use `.venv/bin/python` for Python commands and `npm` instead of 
 **Do not overwrite an existing `.env` when upgrading.** In the original working folder, the supplied Atlas connection has already been placed in the ignored `backend/.env`, and a random session secret has been generated. Those files are intentionally absent from GitHub. Add your Gemini key there, then restart the backend. A fresh clone requires the setup above.
 
 For the Android app on the same Wi-Fi, double-click **`start-wifi.cmd`**, then open
-**Shift AI** on your phone. USB is only needed for initial installation. If the
-computer address changes, use **Server → Find server** in the app. See
+**Shift AI** on your phone. USB is only needed for initial installation. The app
+finds your computer automatically, including after its Wi-Fi address changes. See
 [Android Wi-Fi setup](docs/ANDROID_WIFI.md) for installation and troubleshooting.
 
 ## Google authentication: exactly what to configure
@@ -159,11 +171,17 @@ See [dynamic discovery](backend/DISCOVERY.md) for structured memory, evidence ha
 ## Architecture
 
 ```text
-frontend/                 Next.js, React, TypeScript, Tailwind, shadcn-style UI primitives
+frontend/                 Website: Next.js, React, TypeScript, Tailwind, shadcn-style UI primitives
   app/                    Landing, dashboard, login, settings, project routes
   components/             Layout, dialogs, buttons, structured analysis/blueprint rendering
   lib/                    API client, types, utilities
   tests/                  Desktop and mobile browser tests
+appfrontend/              Phone app the Android shell loads: no landing page, hand-written CSS
+  app/                    Entry redirect, access, chats, new, chat/[id], documents, report, settings
+  app/styles/             Native design system: frame, controls, conversation, screens
+  components/             App bar and tabs, bottom sheets, conversation, question design, reports
+  lib/                    Same API client contract as the website
+android/                  WebView shell that opens appfrontend and discovers it over Wi-Fi
 backend/
   app/api/                Validated REST endpoints
   app/core/               Settings, authentication, safe errors

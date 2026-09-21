@@ -16,12 +16,12 @@ def main():
     load_dotenv(root/'.env',override=True)
     discovery = None
     if args.lan:
-        from app.lan import lan_origins, start_discovery
+        from app.lan import APP_PORT, lan_origins, start_discovery
         os.environ['LAN_ACCESS'] = 'true'
         discovery = start_discovery(api_port=args.port)
         for origin in lan_origins():
-            if origin.endswith(':3000'):
-                print(f'Phone server address: {origin}', flush=True)
+            if origin.endswith(f':{APP_PORT}'):
+                print(f'Phone app address: {origin}', flush=True)
     try:
         uvicorn.run(
             'app.main:app',

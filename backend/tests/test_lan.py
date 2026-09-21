@@ -7,8 +7,9 @@ def test_discovery_echoes_nonce_without_exposing_credentials():
     reply = json.loads(discovery_response(json.dumps({'service': PROTOCOL, 'nonce': 'test-123'}), '192.168.1.20'))
     assert reply['nonce'] == 'test-123'
     assert reply['port'] == 3000
+    assert reply['app_port'] == 3100
     assert reply['api_port'] == 8000
-    assert set(reply) == {'service', 'nonce', 'port', 'api_port', 'name'}
+    assert set(reply) == {'service', 'nonce', 'port', 'app_port', 'api_port', 'name'}
 
 
 def test_discovery_ignores_unrelated_malformed_and_public_requests():
@@ -22,7 +23,11 @@ def test_lan_origins_follow_address_changes_only_when_enabled(monkeypatch):
     monkeypatch.setattr('app.lan.lan_addresses', lambda: ['192.168.1.10'])
     settings = Settings(_env_file=None, lan_access=True)
     assert 'http://192.168.1.10:3000' in settings.origins
+    # The Android shell loads the app frontend, so its origin must be allowed too.
+    assert 'http://192.168.1.10:3100' in settings.origins
     monkeypatch.setattr('app.lan.lan_addresses', lambda: ['192.168.2.20'])
     assert 'http://192.168.2.20:3000' in settings.origins
+    assert 'http://192.168.2.20:3100' in settings.origins
     assert 'http://192.168.1.10:3000' not in settings.origins
     assert 'http://192.168.2.20:3000' not in Settings(_env_file=None, lan_access=False).origins
+    assert 'http://192.168.2.20:3100' not in Settings(_env_file=None, lan_access=False).origins

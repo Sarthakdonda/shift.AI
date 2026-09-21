@@ -13,7 +13,8 @@ class Settings(BaseSettings):
     gemini_effort: Literal['instant', 'low', 'medium', 'high'] = 'low'
     mongodb_uri: str = ''
     mongodb_database: str = 'shift_ai'
-    cors_origins: str = 'http://localhost:3000,http://localhost:3001'
+    # 3000/3001 serve the website; 3100 serves the phone app frontend.
+    cors_origins: str = 'http://localhost:3000,http://localhost:3001,http://localhost:3100'
     lan_access: bool = False
     max_upload_mb: int = 15
     google_client_id: str = ''

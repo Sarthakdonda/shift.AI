@@ -10,8 +10,14 @@ from app.services.gemini_service import GeminiService
 
 def test_health_boots_without_keys(setup):
     client, _, _, settings = setup
+    with patch('app.api.routes.get_store', side_effect=AssertionError('liveness must not query the database')):
+        live = client.get('/api/health/live')
+    assert live.status_code == 200
+    assert live.json()['status'] == 'ok'
+    assert live.json()['gemini_configured'] is False
     assert client.get('/api/health').json()['gemini_configured'] is False
     settings.gemini_api_key = 'configured-test-value'
+    assert client.get('/api/health/live').json()['gemini_configured'] is True
     assert client.get('/api/health').json()['gemini_configured'] is True
     assert 'gemini_api_key' not in client.get('/api/health').text
 
