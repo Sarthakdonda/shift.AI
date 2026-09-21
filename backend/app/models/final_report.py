@@ -3,25 +3,9 @@ from typing import Literal, ClassVar
 import re
 from pydantic import BaseModel, Field, model_validator
 from app.models.deliverables import Section, Diagram, Screen, CodeAsset
+from app.models.provider_schema import ProviderModel as ReportModel
 
 Tier = Literal['lean', 'balanced', 'advanced']
-
-
-class ReportModel(BaseModel):
-    @classmethod
-    def provider_json_schema(cls):
-        """Send shape/enums; enforce size/range/relationship constraints locally.
-
-        Nested collection bounds can exhaust a provider's schema compilation
-        budget even when the actual requested document is small.
-        """
-        def compact(value):
-            if isinstance(value, dict):
-                return {k: ({name: compact(child) for name, child in v.items()} if k in {'properties', '$defs'} else compact(v)) for k, v in value.items() if k not in {
-                    'title', 'minItems', 'maxItems', 'minLength', 'maxLength', 'minimum', 'maximum', 'pattern'}}
-            if isinstance(value, list): return [compact(v) for v in value]
-            return value
-        return compact(cls.model_json_schema())
 
 
 class Estimate(BaseModel):

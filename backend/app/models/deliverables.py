@@ -1,6 +1,7 @@
 from typing import Literal
 from pydantic import BaseModel, Field, model_validator
 import yaml
+from app.models.provider_schema import ProviderModel
 
 KINDS = ('business', 'architecture', 'process', 'ux', 'data_api', 'planning', 'transformation')
 LANGUAGES = {'en': 'English', 'hi': 'Hindi', 'es': 'Spanish', 'fr': 'French', 'de': 'German', 'ar': 'Arabic', 'pt': 'Portuguese', 'zh': 'Chinese', 'ja': 'Japanese', 'ko': 'Korean', 'it': 'Italian', 'bn': 'Bengali', 'ta': 'Tamil', 'te': 'Telugu', 'mr': 'Marathi', 'ur': 'Urdu', 'ru': 'Russian', 'id': 'Indonesian', 'tr': 'Turkish', 'vi': 'Vietnamese'}
@@ -78,7 +79,7 @@ class Assessment(BaseModel):
     evidence: list[str] = Field(min_length=1,max_length=10)
 
 
-class Deliverable(BaseModel):
+class Deliverable(ProviderModel):
     title: str = Field(min_length=1, max_length=200)
     summary: str = Field(min_length=1, max_length=4000)
     sections: list[Section] = Field(min_length=1, max_length=20)
