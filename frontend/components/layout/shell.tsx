@@ -180,7 +180,7 @@ export function Shell({
           aria-label="Workspace navigation"
         >
           <div className="dx-sidebar-top">
-            <Logo light />
+            <Logo light href="/dashboard" />
             <button
               type="button"
               className="dx-collapse"
