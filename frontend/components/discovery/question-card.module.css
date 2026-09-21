@@ -1,0 +1,125 @@
+.card {
+  padding: 20px;
+  border: 1px solid #ebd6c0;
+  border-radius: 18px;
+  background: linear-gradient(145deg, #fffaf4, #fff);
+}
+.content {
+  min-width: 0;
+}
+.question + .question {
+  margin-top: 18px;
+}
+.eyebrow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: #9c4700;
+  font-size: 12px;
+  font-weight: 550;
+}
+.eyebrow > span:first-child {
+  background: #ffedd9;
+  padding: 4px 9px;
+  border-radius: 7px;
+}
+.dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #c8996d;
+}
+.content h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(17px, 1.5vw, 22px);
+  line-height: 1.4;
+  letter-spacing: -0.025em;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.reason,
+.hint,
+.notice {
+  margin: 9px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.hint {
+  color: #6d6257;
+}
+.notice {
+  margin: 0 0 14px;
+}
+.active {
+  border-color: #e6c9ad !important;
+  background: linear-gradient(145deg, #fffaf4, #fff) !important;
+  max-height: 68svh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.active .content {
+  padding: 19px 20px 2px;
+}
+.active textarea {
+  width: calc(100% - 40px) !important;
+  min-height: 86px;
+  margin: 14px 20px 4px;
+  padding: 12px 14px !important;
+  border: 1px solid var(--line-2) !important;
+  border-radius: 12px !important;
+  background: white !important;
+  font-size: 15px !important;
+  line-height: 1.6;
+}
+.submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: calc(100% - 40px);
+  min-height: 42px;
+  margin: 4px 20px 16px;
+  border-radius: 10px;
+  background: var(--orange);
+  color: #171717;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background 150ms;
+}
+.submit:hover:not(:disabled) {
+  background: #ee7100;
+}
+.submit:disabled {
+  background: #eee9e2;
+  color: #8c867e;
+  cursor: not-allowed;
+}
+@media (max-width: 560px) {
+  .active {
+    max-height: 70svh;
+  }
+  .active .content {
+    padding: 14px 14px 0;
+  }
+  .active textarea {
+    margin: 12px 14px 4px;
+    width: calc(100% - 28px) !important;
+    font-size: 16px !important;
+  }
+  .submit {
+    margin: 4px 14px 14px;
+    width: calc(100% - 28px);
+  }
+  .card {
+    padding: 14px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .submit {
+    transition: none;
+  }
+}

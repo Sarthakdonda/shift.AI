@@ -74,7 +74,7 @@ def test_missing_gemini_preserves_project(setup, project, monkeypatch):
     from app.api import routes
     client, store, _, _ = setup
     monkeypatch.setattr(routes, 'get_gemini', GeminiService)
-    r = client.post(f'/api/projects/{project}/chat', json={'content': 'Hello again'})
+    r = client.post(f'/api/projects/{project}/chat', json={'content': 'Our invoice approvals wait for a manager every Friday.'})
     assert r.status_code == 503
     assert 'GEMINI_API_KEY' in r.json()['detail']
     assert store.project(project, 'local-workspace')['busy'] is False

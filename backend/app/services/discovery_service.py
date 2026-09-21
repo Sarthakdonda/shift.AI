@@ -16,6 +16,36 @@ def normalized(value: str) -> str:
     return ' '.join(re.findall(r'\w+', unicodedata.normalize('NFKC', value).casefold()))
 
 
+def is_non_answer(value: str) -> bool:
+    """Recognize only empty/punctuation and standalone social turns.
+
+    Short answers (yes/no, names, numbers) still go to contextual interpretation.
+    A greeting followed by business details is also a real answer.
+    """
+    text = normalized(value)
+    if not any(c.isalnum() for c in text):
+        return True
+    if text in {normalized(word) for word in ('नमस्ते', 'नमस्कार', '你好', 'مرحبا', 'سلام')}:
+        return True
+    return bool(re.fullmatch(r'(?:h+i+|h+e+y+|h+e+l+o+|hello|hi there|hey there|hello there|good morning|good evening|good afternoon|thanks|thank you|ok|okay|hmm+|namaste|नमस्ते|नमस्कार|hola|bonjour|你好|مرحبا|سلام)(?:\s+(?:shift\s*ai|there|again))?', text))
+
+
+def readiness_issues(evidence, messages, documents):
+    """Validate the quoted support independently of model scores and prose."""
+    sources = {m['id']: normalized(m['content']) for m in messages
+               if m['role'] == 'user' and not is_non_answer(m['content'])}
+    for document in documents:
+        if document['status'] == 'processed':
+            sources[document['id']] = normalized(document.get('summary', '') + ' ' + ' '.join(f['fact'] for f in document.get('facts', [])))
+    supported = set()
+    for item in evidence:
+        quote = normalized(item.quote)
+        if quote and not is_non_answer(quote) and quote in sources.get(item.source_id, ''):
+            supported.add(item.criterion)
+    return [f'Readiness needs an exact supporting user/document quote for {criterion}; scores and assumptions are not evidence.'
+            for criterion in ('problem', 'workflow', 'outcome') if criterion not in supported]
+
+
 def same_question(left: str, right: str) -> bool:
     a, b = normalized(left), normalized(right)
     return a == b or SequenceMatcher(None, a, b).ratio() >= 0.86
@@ -25,7 +55,7 @@ def load_memory(project, messages, documents) -> ProjectContext:
     memory = ProjectContext.model_validate(project.get('project_context') or {
         'stated_request': project['initial_problem'],
     })
-    user_ids = {m['id'] for m in messages if m['role'] == 'user'}
+    user_ids = {m['id'] for m in messages if m['role'] == 'user' and not is_non_answer(m['content'])}
     doc_ids = {d['id'] for d in documents if d['status'] == 'processed'}
     # Drop derived evidence if ANY supporting document was removed.
     active_ids = user_ids | doc_ids
@@ -42,9 +72,13 @@ def load_memory(project, messages, documents) -> ProjectContext:
     # Legacy projects retain all historical questions; raw messages are migrated by the next call.
     existing = {normalized(q.question) for q in memory.questions_asked}
     for message in messages:
-        if message['role'] == 'assistant' and message.get('message_type') == 'question' and normalized(message['content']) not in existing:
-            memory.questions_asked.append(Question(question=message['content'][:1200], topic='legacy.' + message['id'],
-                                                   reason='Previously asked question', priority='medium'))
+        if message['role'] == 'assistant' and message.get('message_type') == 'question':
+            questions = [Question.model_validate(q) for q in message.get('questions', [])] or [
+                Question(question=message['content'][:1200], topic='legacy.' + message['id'], reason='Previously asked question', priority='medium')]
+            for question in questions:
+                if normalized(question.question) not in existing:
+                    memory.questions_asked.append(question)
+                    existing.add(normalized(question.question))
     return memory
 
 
@@ -55,7 +89,7 @@ class DiscoveryService:
     def run(self, context, all_messages):
         project = context['project']
         memory = load_memory(project, all_messages, context['documents'])
-        user_ids = {m['id'] for m in all_messages if m['role'] == 'user'}
+        user_ids = {m['id'] for m in all_messages if m['role'] == 'user' and not is_non_answer(m['content'])}
         doc_ids = {d['id'] for d in context['documents'] if d['status'] == 'processed'}
         pending = [m for m in all_messages if m['role'] == 'user' and m['id'] not in memory.processed_message_ids]
         payload = {
@@ -92,8 +126,10 @@ class DiscoveryService:
                     issues.append(f'Topic {question.topic} repeats a prior question. Select a different unknown.')
                 previous.append(question)
                 asked.add(key)
-            if result.enough_information and not (memory.known_facts or result.collected_information or memory.document_findings):
-                issues.append('Analysis readiness requires sourced facts, not only completeness scores.')
+            if result.enough_information:
+                issues.extend(readiness_issues(result.readiness_evidence, all_messages, context['documents']))
+                if not (memory.known_facts or result.collected_information or memory.document_findings):
+                    issues.append('Analysis readiness requires sourced facts, not only completeness scores.')
             if issues:
                 logger.info('Discovery validation project=%s attempt=%s rejected=%s', project['id'], attempt + 1, len(issues))
                 payload['validation_feedback'] = issues
@@ -123,6 +159,7 @@ class DiscoveryService:
             memory.information_sufficiency = result.information_sufficiency
             memory.ready_for_analysis = result.enough_information
             memory.readiness_reason = result.readiness_reason
+            memory.readiness_evidence = result.readiness_evidence if result.enough_information else []
             # Keep the existing downstream evidence interface backed by the full durable memory.
             result.collected_information = memory.known_facts
             logger.info('Discovery project=%s stage=%s facts=%s unknowns=%s sufficiency=%s ready=%s',

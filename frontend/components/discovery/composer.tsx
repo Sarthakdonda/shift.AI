@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import {
   ArrowUp,
+  ArrowRight,
   FileText,
   FolderOpen,
   Square,
@@ -20,7 +21,8 @@ import {
 } from "@/components/discovery/model-controls";
 import { VoiceInputButton } from "@/components/discovery/voice-input";
 import { UsageIndicator } from "@/components/discovery/usage-indicator";
-import type { Document, ModelCatalog } from "@/lib/types";
+import type { Document, ModelCatalog, DiscoveryQuestion } from "@/lib/types";
+import { QuestionContent, questionStyles } from "./question-card";
 
 /**
  * The composer is the second-most important surface after the conversation:
@@ -45,6 +47,7 @@ export function ChatComposer({
   effortSupported,
   onModel,
   onEffort,
+  question,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -63,7 +66,13 @@ export function ChatComposer({
   effortSupported: boolean;
   onModel: (id: string) => void;
   onEffort: (id: string) => void;
+  question?: {
+    questions: DiscoveryQuestion[];
+    numbers: number[];
+    notice?: string;
+  };
 }) {
+  const questionId = useId();
   const field = useRef<HTMLTextAreaElement>(null);
   const [listening, setListening] = useState(false);
   const [voiceError, setVoiceError] = useState("");
@@ -99,13 +108,14 @@ export function ChatComposer({
   return (
     <div className="dx-composer-wrap">
       <form
-        className={`dx-composer ${listening ? "is-listening" : ""}`}
+        className={`dx-composer ${listening ? "is-listening" : ""} ${question ? questionStyles.active : ""}`}
         onSubmit={(event) => {
           event.preventDefault();
           if (!ready) return;
           onSubmit();
         }}
       >
+        {question && <QuestionContent {...question} headingId={questionId} />}
         {!!documents.length && (
           <div className="dx-attached" aria-label="Documents in this project">
             {documents.slice(0, 3).map((document) => (
@@ -128,11 +138,16 @@ export function ChatComposer({
         )}
         <textarea
           ref={field}
-          aria-label="Your message"
+          aria-label={question ? "Your answer" : "Your message"}
+          aria-describedby={question ? questionId : undefined}
           rows={1}
           maxLength={12000}
           value={value}
-          placeholder="Ask shift.AI about your current process…"
+          placeholder={
+            question
+              ? "Share your answer in your own words…"
+              : "Ask shift.AI about your current process…"
+          }
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={(event) => {
             if (
@@ -245,16 +260,40 @@ export function ChatComposer({
               onStatus={onVoiceStatus}
             />
             {onStop ? (
-              <button type="button" className="dx-send dx-stop" onClick={onStop} disabled={stopping} aria-label="Stop response" title="Stop response (Esc)">
+              <button
+                type="button"
+                className="dx-send dx-stop"
+                onClick={onStop}
+                disabled={stopping}
+                aria-label="Stop response"
+                title="Stop response (Esc)"
+              >
                 <Square size={13} fill="currentColor" />
               </button>
-            ) : (
-              <button type="submit" className="dx-send" disabled={!ready} aria-label="Send message" title="Send message">
+            ) : !question ? (
+              <button
+                type="submit"
+                className="dx-send"
+                disabled={!ready}
+                aria-label="Send message"
+                title="Send message"
+              >
                 <ArrowUp size={18} />
               </button>
-            )}
+            ) : null}
           </div>
         </div>
+        {question && !onStop && (
+          <button
+            type="submit"
+            className={questionStyles.submit}
+            disabled={!ready}
+          >
+            {" "}
+            <T text="Submit answer" />
+            <ArrowRight size={16} aria-hidden="true" />
+          </button>
+        )}
       </form>
       {voiceError && (
         <p className="dx-composer-alert" role="alert">
@@ -271,9 +310,19 @@ export function ChatComposer({
       )}
       <div className="dx-composer-hint">
         <span>
-          <T text={onStop ? "Esc to stop · Shift + Enter for a new line" : "Enter to send · Shift + Enter for a new line"} />
+          <T
+            text={
+              onStop
+                ? "Esc to stop · Shift + Enter for a new line"
+                : "Enter to send · Shift + Enter for a new line"
+            }
+          />
         </span>
-        <UsageIndicator projectId={projectId} model={model} busy={busy || sending} />
+        <UsageIndicator
+          projectId={projectId}
+          model={model}
+          busy={busy || sending}
+        />
       </div>
     </div>
   );

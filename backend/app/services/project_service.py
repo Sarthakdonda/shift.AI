@@ -4,12 +4,13 @@ from uuid import uuid4
 from datetime import timedelta
 from app.agents import prompts
 from app.core.errors import AppError
-from app.models.schemas import DocumentSummary
+from app.models.schemas import DocumentSummary, Discovery, Scores
+from app.models.project_context import Question
 from app.models.deliverables import LANGUAGES
 from app.repositories.store import now, serialize
 from app.services.document_service import extract
 from app.services.retrieval_service import retrieve
-from app.services.discovery_service import DiscoveryService, load_memory
+from app.services.discovery_service import DiscoveryService, load_memory, is_non_answer, readiness_issues
 from app.services.generation_service import Generation, CancellableAI
 from app.workflows.shift_graph import build_graph
 from app.services.report_service import assemble_report
@@ -55,9 +56,55 @@ class ProjectService:
         if self.generation:
             self.generation.check()
         self.store.update(pid, project_context=memory.model_dump(), discovery=result.model_dump(), discovery_scores=result.scores.model_dump(), analysis_ready=result.enough_information, status='DISCOVERY', error=None, retrieval_warnings=context['retrieval_warnings'])
-        message = result.next_question or 'We have enough context. I’m starting the analysis of your workflow and the underlying problem.'
-        self.store.message(pid, 'assistant', message, message_type='status' if result.enough_information else 'question')
+        message = result.next_question or 'Your project context is ready for analysis.'
+        self.store.message(pid, 'assistant', message, message_type='status' if result.enough_information else 'question',
+                           questions=[q.model_dump() for q in result.next_questions])
         return {'message': message, 'stage': 'DISCOVERY', 'discovery_scores': result.scores.model_dump(), 'needs_user_input': not result.enough_information, 'analysis_ready': result.enough_information, 'project_id': pid}
+
+    def readiness_verified(self, pid, project):
+        messages = serialize(self.store.related('messages', pid))
+        documents = serialize(self.store.related('documents', pid))
+        memory = load_memory(serialize(project), messages, documents)
+        return not readiness_issues(memory.readiness_evidence, messages, documents)
+
+    def clarify_non_answer(self, pid, project):
+        """Keep the current question and evidence; social turns never start analysis."""
+        messages = serialize(self.store.related('messages', pid))
+        documents = serialize(self.store.related('documents', pid))
+        memory = load_memory(serialize(project), messages, documents)
+        verified_ready = bool(project.get('analysis_ready') and (
+            project.get('status') == 'BLUEPRINT_READY' or not readiness_issues(memory.readiness_evidence, messages, documents)))
+        notice = 'I’m here. Share a little about your project so we can keep exploring it.'
+        questions = []
+        if verified_ready:
+            message = 'Your earlier project context is saved and ready for analysis. You can run analysis when you’re ready, or share a change to the problem.'
+        else:
+            previous = project.get('discovery') or {}
+            questions = [Question.model_validate(q) for q in previous.get('next_questions', [])]
+            if not questions:
+                questions = [Question(question=f'What are you trying to improve with {project["name"]}, and how does it work today?',
+                                      topic='problem.project_understanding', label='Understanding your project',
+                                      reason='This helps us understand the real problem before exploring solutions.',
+                                      hint='Describe who faces the problem and what they do today.', priority='high')]
+            # Preserve valid incomplete progress, but repair old unsupported ready flags.
+            scores = Scores.model_validate(project.get('discovery_scores') or {}) if not project.get('analysis_ready') else Scores()
+            discovery = Discovery(collected_information=memory.known_facts, missing_information=previous.get('missing_information', []),
+                                  critical_missing=previous.get('critical_missing') or ['Confirm the current problem, workflow and desired outcome.'],
+                                  scores=scores, enough_information=False, next_question='', next_questions=questions,
+                                  assumptions=memory.assumptions, unknowns=memory.unknowns, answered_topics=memory.answered_topics,
+                                  information_sufficiency=scores.overall, readiness_reason='The latest message adds no project evidence.')
+            memory.ready_for_analysis = False
+            memory.readiness_evidence = []
+            memory.information_sufficiency = scores.overall
+            memory.readiness_reason = discovery.readiness_reason
+            self.store.update(pid, analysis_ready=False, status='DISCOVERY', discovery=discovery.model_dump(),
+                              discovery_scores=scores.model_dump(), project_context=memory.model_dump(), error=None)
+            message = notice + '\n\n' + discovery.next_question
+        self.store.message(pid, 'assistant', message, message_type='question' if questions else 'status',
+                           questions=[q.model_dump() for q in questions], question_notice=notice if questions else '')
+        return {'message': message, 'stage': project['status'] if verified_ready else 'DISCOVERY', 'project_id': pid,
+                'analysis_ready': verified_ready, 'needs_user_input': not verified_ready,
+                'discovery_scores': project['discovery_scores'] if verified_ready else scores.model_dump()}
 
     def chat(self, pid, owner, content=None, tasks=None, request_id=None):
         self.store.project(pid, owner, 'write')
@@ -84,6 +131,8 @@ class ProjectService:
                         'discovery_scores': project['discovery_scores']}
             if content and not duplicate:
                 self.store.message(pid, 'user', content, request_id=request_id)
+                if is_non_answer(content):
+                    return self.clarify_non_answer(pid, project)
                 self.store.invalidate(pid)
             result = self.discover(pid, owner)
             self.generation.check()

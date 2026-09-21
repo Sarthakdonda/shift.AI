@@ -45,7 +45,13 @@ def projects(account=Depends(user)):
 
 @router.get('/projects/{pid}')
 def project(pid: str, account=Depends(user)):
-    return serialize(get_store().project(pid, account['id']))
+    svc = service()
+    p = svc.store.project(pid, account['id'])
+    # Old score-only decisions must not advertise readiness before verification.
+    # Completed reports remain accessible; this does not mutate saved projects.
+    if p.get('analysis_ready') and p['status'] != 'BLUEPRINT_READY' and not svc.readiness_verified(pid, p):
+        p['analysis_ready'] = False
+    return serialize(p)
 
 
 @router.delete('/projects/{pid}')
@@ -110,7 +116,7 @@ def next_question(pid: str, tasks: BackgroundTasks, body: GenerationInput | None
 def analyze(pid: str, tasks: BackgroundTasks, account=Depends(user)):
     svc = service()
     p = svc.store.project(pid, account['id'])
-    if not p.get('analysis_ready') or p.get('discovery', {}).get('critical_missing'):
+    if not p.get('analysis_ready') or (p.get('discovery') or {}).get('critical_missing') or not svc.readiness_verified(pid, p):
         raise AppError('Complete the critical discovery questions before running analysis.', 409)
     svc.ai.require()
     svc.store.acquire(pid, account['id'])

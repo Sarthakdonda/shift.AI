@@ -65,6 +65,15 @@ export type Message = {
   created_at: string;
   message_type?: string;
   request_id?: string;
+  questions?: DiscoveryQuestion[];
+  question_notice?: string;
+};
+export type DiscoveryQuestion = {
+  question: string;
+  topic: string;
+  reason: string;
+  label?: string;
+  hint?: string;
 };
 export type Document = {
   id: string;

@@ -1,6 +1,7 @@
 from typing import Literal
 from pydantic import BaseModel, Field, ConfigDict, model_validator
-from app.models.project_context import ContextFact, Unknown, Question
+from app.models.project_context import ContextFact, Unknown, Question, ReadinessEvidence
+from app.models.provider_schema import ProviderModel
 
 Score = int
 Classification = Literal['AI_REQUIRED', 'AI_OPTIONAL', 'AUTOMATION_SUFFICIENT', 'PROCESS_IMPROVEMENT', 'EXISTING_SOFTWARE_SUFFICIENT', 'HYBRID_SOLUTION']
@@ -53,7 +54,7 @@ class Fact(BaseModel):
     source: str
 
 
-class Discovery(BaseModel):
+class Discovery(ProviderModel):
     collected_information: list[ContextFact]
     missing_information: list[str]
     critical_missing: list[str]
@@ -66,6 +67,7 @@ class Discovery(BaseModel):
     answered_topics: list[str]
     information_sufficiency: int = Field(ge=0, le=100)
     readiness_reason: str = Field(min_length=1)
+    readiness_evidence: list[ReadinessEvidence] = Field(default_factory=list, max_length=9)
 
     @model_validator(mode='after')
     def gate(self):

@@ -19,6 +19,7 @@ def response(q=None, facts=None, ready=False):
         'enough_information': ready, 'next_question': '', 'assumptions': [], 'unknowns': [],
         'next_questions': [] if ready else [q or question()], 'answered_topics': [],
         'information_sufficiency': 85 if ready else 35, 'readiness_reason': 'Evidence is sufficient.' if ready else 'The bottleneck is still unknown.',
+        'readiness_evidence': [{'criterion': key, 'source_id': 'm1', 'quote': 'We have 50 employees.'} for key in ('problem', 'workflow', 'outcome')] if ready else [],
     })
 
 

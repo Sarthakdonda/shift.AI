@@ -2,17 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import {
-  ArrowDown,
-  ArrowRight,
-  Check,
-  Copy,
-  RefreshCw,
-} from "lucide-react";
+import { ArrowDown, ArrowRight, Check, Copy, RefreshCw } from "lucide-react";
 import { T } from "@/components/locale";
 import { MessageText } from "@/components/discovery/message-text";
 import type { Message } from "@/lib/types";
 import mark from "@/public/brand/logo-mark.png";
+import {
+  QuestionContent,
+  messageQuestions,
+  questionStyles,
+} from "./question-card";
 
 function AssistantMark({ large = false }: { large?: boolean }) {
   return (
@@ -84,18 +83,34 @@ function MessageActions({
 
 export function AssistantMessage({
   message,
+  questionNumbers = {},
 }: {
   message: Message;
+  questionNumbers?: Record<string, number>;
 }) {
+  const questions = messageQuestions(message);
   return (
-    <article className="dx-msg dx-msg-assistant" aria-label="Assistant response">
+    <article
+      className="dx-msg dx-msg-assistant"
+      aria-label="Assistant response"
+    >
       <div className="dx-msg-head">
         <AssistantMark />
         <span className="dx-msg-time">{time(message.created_at)}</span>
       </div>
-      <div className="dx-prose">
-        <MessageText content={message.content} />
-      </div>
+      {questions.length ? (
+        <div className={questionStyles.card}>
+          <QuestionContent
+            questions={questions}
+            numbers={questions.map((q) => questionNumbers[q.topic] || 1)}
+            notice={message.question_notice}
+          />
+        </div>
+      ) : (
+        <div className="dx-prose">
+          <MessageText content={message.content} />
+        </div>
+      )}
       <MessageActions content={message.content} />
     </article>
   );
@@ -128,9 +143,16 @@ export function UserMessage({
 
 export function TypingIndicator({ label }: { label?: string }) {
   return (
-    <div className="dx-typing" role="status" aria-live="polite" aria-atomic="true">
+    <div
+      className="dx-typing"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+    >
       <AssistantMark />
-      <span className="dx-typing-label"><T text={label || "Thinking"} />…</span>
+      <span className="dx-typing-label">
+        <T text={label || "Thinking"} />…
+      </span>
     </div>
   );
 }
@@ -232,6 +254,8 @@ export function ConversationStream({
   onRetry,
   children,
   empty,
+  activeQuestionId,
+  questionNumbers,
 }: {
   messages: Message[];
   thinking: boolean;
@@ -239,6 +263,8 @@ export function ConversationStream({
   onRetry?: () => void;
   children?: React.ReactNode;
   empty?: React.ReactNode;
+  activeQuestionId?: string;
+  questionNumbers?: Record<string, number>;
 }) {
   const scroller = useRef<HTMLDivElement>(null);
   const anchor = useRef<HTMLDivElement>(null);
@@ -293,24 +319,27 @@ export function ConversationStream({
       <div className="dx-stream" ref={scroller} tabIndex={-1}>
         <div className="dx-stream-inner">
           {empty}
-          {messages.map((message) =>
-            message.role === "assistant" ? (
-              <AssistantMessage
-                key={message.id}
-                message={message}
-              />
-            ) : (
-              <UserMessage
-                key={message.id}
-                message={message}
-                onRetry={
-                  onRetry && message.id === messages.at(-1)?.id
-                    ? onRetry
-                    : undefined
-                }
-              />
-            ),
-          )}
+          {messages
+            .filter((message) => message.id !== activeQuestionId)
+            .map((message) =>
+              message.role === "assistant" ? (
+                <AssistantMessage
+                  key={message.id}
+                  message={message}
+                  questionNumbers={questionNumbers}
+                />
+              ) : (
+                <UserMessage
+                  key={message.id}
+                  message={message}
+                  onRetry={
+                    onRetry && message.id === messages.at(-1)?.id
+                      ? onRetry
+                      : undefined
+                  }
+                />
+              ),
+            )}
           {thinking && <TypingIndicator label={thinkingLabel} />}
           {children}
           <div ref={anchor} className="dx-anchor" />

@@ -14,6 +14,7 @@ import {
 import { useMediaQuery } from "@/components/ui/popover";
 import { activityLabel } from "@/components/discovery/activity";
 import type { Document, Message, ModelCatalog, Project } from "@/lib/types";
+import { messageQuestions } from "./question-card";
 
 /**
  * Discovery workspace.
@@ -78,6 +79,24 @@ export function DiscoveryWorkspace({
   const overlay = contextOpen && !wide;
   const documentsHref = `/project/${project.id}/documents`;
   const started = messages.some((m) => m.role === "assistant");
+  const questionNumbers: Record<string, number> = {};
+  for (const item of messages) {
+    for (const question of messageQuestions(item)) {
+      if (!questionNumbers[question.topic])
+        questionNumbers[question.topic] =
+          Object.keys(questionNumbers).length + 1;
+    }
+  }
+  const latest = messages.at(-1);
+  const questions =
+    latest && !project.analysis_ready ? messageQuestions(latest) : [];
+  const activeQuestion = questions.length
+    ? {
+        questions,
+        numbers: questions.map((q) => questionNumbers[q.topic]),
+        notice: latest?.question_notice,
+      }
+    : undefined;
   const awaitingReply =
     messages.at(-1)?.role === "user" && messages.length > 1 && !busy;
 
@@ -103,8 +122,16 @@ export function DiscoveryWorkspace({
         <div className="dx-conversation">
           <ConversationStream
             messages={messages}
+            activeQuestionId={activeQuestion ? latest?.id : undefined}
+            questionNumbers={questionNumbers}
             thinking={!stopped && (!!action || !!project.busy)}
-            thinkingLabel={activityLabel({ status: project.status, busy: project.busy, action, effort, stopping })}
+            thinkingLabel={activityLabel({
+              status: project.status,
+              busy: project.busy,
+              action,
+              effort,
+              stopping,
+            })}
             onRetry={awaitingReply ? onRetry : undefined}
             empty={
               !started && messages.length <= 1 && !busy && !stopped ? (
@@ -119,7 +146,11 @@ export function DiscoveryWorkspace({
             }
           />
           <div className="dx-footer">
-            {stopped && <p className="dx-stopped" role="status">Response stopped. You can continue whenever you’re ready.</p>}
+            {stopped && (
+              <p className="dx-stopped" role="status">
+                Response stopped. You can continue whenever you’re ready.
+              </p>
+            )}
             {project.analysis_ready && !project.busy && (
               <div className="ready-banner dx-ready">
                 <CircleCheck size={17} />
@@ -177,6 +208,7 @@ export function DiscoveryWorkspace({
               </p>
             ))}
             <ChatComposer
+              question={activeQuestion}
               value={message}
               onChange={onMessage}
               onSubmit={onSend}

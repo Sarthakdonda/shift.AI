@@ -24,6 +24,14 @@ class Question(BaseModel):
     topic: str = Field(min_length=1, description='Specific unknown to resolve; reuse known fact and historical question topic keys')
     reason: str = Field(min_length=1)
     priority: Literal['high', 'medium', 'low']
+    label: str = Field(default='Your project', max_length=80, description='Short, natural heading for the question card in the user language; not a topic key')
+    hint: str = Field(default='', max_length=300, description='Optional brief guidance for answering; never invent facts or suggest a preferred answer')
+
+
+class ReadinessEvidence(BaseModel):
+    criterion: Literal['problem', 'workflow', 'outcome']
+    source_id: str = Field(min_length=1)
+    quote: str = Field(min_length=3, max_length=2000, description='Exact supporting excerpt from this user message or current document, not assistant text')
 
 
 class ProjectContext(BaseModel):
@@ -39,3 +47,4 @@ class ProjectContext(BaseModel):
     information_sufficiency: int = Field(default=0, ge=0, le=100)
     ready_for_analysis: bool = False
     readiness_reason: str = ''
+    readiness_evidence: list[ReadinessEvidence] = Field(default_factory=list, max_length=9)
