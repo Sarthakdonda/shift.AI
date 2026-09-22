@@ -55,7 +55,7 @@ export default function ForgotPassword() {
         </div>
 
         {sent ? (
-          <div className="access-signed">
+          <div className="access-card access-signed">
             <span className="access-check">
               <MailCheck size={23} aria-hidden="true" />
             </span>
@@ -82,7 +82,12 @@ export default function ForgotPassword() {
             </button>
           </div>
         ) : (
-          <form onSubmit={submit} noValidate aria-busy={busy}>
+          <div className="access-card">
+            <div className="access-card-head">
+              <span>Recover your account</span>
+              <small>Secure email verification</small>
+            </div>
+            <form onSubmit={submit} noValidate aria-busy={busy}>
             <Field
               id="reset-email"
               label="Email address"
@@ -115,7 +120,8 @@ export default function ForgotPassword() {
                 Create an account
               </Link>
             </p>
-          </form>
+            </form>
+          </div>
         )}
       </div>
     </Screen>

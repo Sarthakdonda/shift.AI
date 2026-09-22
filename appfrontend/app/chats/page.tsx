@@ -10,6 +10,7 @@ import {
   MessagesSquare,
   Plus,
   Search,
+  Sparkles,
   X,
 } from "lucide-react";
 import { Screen } from "@/components/shell/screen";
@@ -110,17 +111,27 @@ export default function Chats() {
             />
           </label>
         ) : (
-          <div>
-            <h1>
-              {user && !user.local
-                ? `Hello, ${user.name.split(" ")[0]}.`
-                : "A clearer way forward."}
-            </h1>
-            <p>Pick up a thought, or start something new.</p>
-          </div>
+          <section className="workspace-hero">
+            <div className="workspace-hero-copy">
+              <span className="hero-kicker">
+                <Sparkles size={13} aria-hidden="true" />
+                Strategy workspace
+              </span>
+              <h1>
+                {user && !user.local
+                  ? `Good to see you, ${user.name.split(" ")[0]}.`
+                  : "Turn business friction into a clear plan."}
+              </h1>
+              <p>Continue discovery, review evidence, or shape your next move.</p>
+            </div>
+            <Link className="hero-action" href="/new">
+              <Plus size={17} aria-hidden="true" />
+              Start a brief
+            </Link>
+          </section>
         )}
 
-        <div className="stats">
+        <div className="stats" aria-label="Workspace overview">
           {(
             [
               [FolderOpen, "Projects", all.length],
@@ -129,15 +140,22 @@ export default function Chats() {
             ] as const
           ).map(([Icon, label, count], index) => (
             <div className="stat" key={label} style={stagger(index)}>
-              <Icon size={15} aria-hidden="true" color="var(--ink-4)" />
-              <strong>{String(count).padStart(2, "0")}</strong>
-              <span>{label}</span>
+              <span className="stat-icon"><Icon size={16} aria-hidden="true" /></span>
+              <span className="stat-copy">
+                <strong>{String(count).padStart(2, "0")}</strong>
+                <span>{label}</span>
+              </span>
             </div>
           ))}
         </div>
 
         {!!all.length && (
-          <div className="chip-scroller">
+          <div className="project-toolbar">
+            <div>
+              <span className="eyebrow">Active work</span>
+              <strong>{visible.length} {visible.length === 1 ? "project" : "projects"}</strong>
+            </div>
+            <div className="chip-scroller">
             {FILTERS.map(([key, label]) => (
               <button
                 type="button"
@@ -150,6 +168,7 @@ export default function Chats() {
                 {label}
               </button>
             ))}
+            </div>
           </div>
         )}
       </div>
@@ -180,7 +199,7 @@ export default function Chats() {
               key={project.id}
               style={stagger(index)}
             >
-              <div className="row-between">
+              <div className="project-card-head">
                 <span
                   className={`badge ${
                     project.status === "BLUEPRINT_READY"
@@ -190,10 +209,11 @@ export default function Chats() {
                 >
                   {humanize(project.status)}
                 </span>
-                <span className="badge">
-                  {project.industry || "Business strategy"}
-                </span>
+                <ArrowUpRight className="project-card-arrow" size={18} aria-hidden="true" />
               </div>
+              <span className="project-industry">
+                {project.industry || "Business strategy"}
+              </span>
               <h3 className="clamp-2">{project.name}</h3>
               <p className="clamp-2">{project.initial_problem}</p>
               <div className="chat-progress">
@@ -211,7 +231,7 @@ export default function Chats() {
               </div>
               <footer>
                 <span>{relativeTime(project.updated_at)}</span>
-                <ArrowUpRight size={16} aria-hidden="true" />
+                <span>{project.discovery_scores.overall || 0}% context mapped</span>
               </footer>
             </Link>
           ))

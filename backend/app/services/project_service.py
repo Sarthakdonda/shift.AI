@@ -4,7 +4,7 @@ from uuid import uuid4
 from datetime import timedelta
 from app.agents import prompts
 from app.core.errors import AppError
-from app.models.schemas import DocumentSummary, Discovery, Scores
+from app.models.schemas import DocumentSummary, Discovery, Scores, RedTeam
 from app.models.project_context import Question
 from app.models.deliverables import LANGUAGES
 from app.repositories.store import now, serialize
@@ -13,6 +13,7 @@ from app.services.retrieval_service import retrieve
 from app.services.discovery_service import DiscoveryService, load_memory, is_non_answer, readiness_issues
 from app.services.generation_service import Generation, CancellableAI
 from app.workflows.shift_graph import build_graph
+from app.workflows.review import reconcile
 from app.services.report_service import assemble_report
 
 logger = logging.getLogger(__name__)
@@ -146,7 +147,7 @@ class ProjectService:
             if not handed_off:
                 self.store.update(pid, busy=False, active_generation_id=None)
 
-    def analyze(self, pid, owner):
+    def analyze(self, pid, owner, review_seed=None):
         try:
             context = self.context(pid, owner)
 
@@ -154,27 +155,51 @@ class ProjectService:
                 if self.generation:
                     self.generation.check()
                 self.store.update(pid, status=stage, lease_until=now() + timedelta(minutes=30))
-                self.store.save_analysis(pid, {k: v for k, v in state.items() if k != 'context'})
+                self.store.save_analysis(pid, {k: v for k, v in state.items() if k not in {'context', 'revision_base'}})
 
-            result = build_graph(self.ai, progress).invoke({'context': context, 'red_team_cycle': 0, 'red_team_history': []}, {'recursion_limit': 30})
+            initial = {'context': context, 'red_team_cycle': 0, 'red_team_history': [],
+                       'review_ledger': [], 'design_changes': [], 'review_responses': [], 'solution_history': []}
+            if review_seed:
+                from app.workflows.shift_graph import ShiftState
+                initial.update({k: copy.deepcopy(v) for k, v in review_seed.items() if k in ShiftState.__annotations__ and k != 'context'})
+                if not initial['review_ledger'] and initial.get('red_team', {}).get('findings'):
+                    # Older saved designs have findings but no persistent ledger.
+                    # Import them before review so omission cannot erase a known risk.
+                    legacy = RedTeam.model_validate(initial['red_team']).model_dump()
+                    legacy['assessments'] = []
+                    initial['review_ledger'] = reconcile(initial, legacy)
+            initial['review_run_cycle'] = 0
+            initial['revision_base'] = {}
+            initial['revision_plan'] = []
+            result = build_graph(self.ai, progress, resume=bool(review_seed)).invoke(initial, {'recursion_limit': 45})
             if self.generation:
                 self.generation.check()
-            content = {k: v for k, v in result.items() if k != 'context'}
+            content = {k: v for k, v in result.items() if k not in {'context', 'revision_base'}}
+            content['source_revision'] = context['project'].get('context_revision', 0)
             content['problem_statement'] = context['project']['initial_problem']
             content['evidence'] = context['previous_discovery']['collected_information'] if context['previous_discovery'] else []
             content['retrieval_warnings'] = context['retrieval_warnings']
             content['final_report'] = assemble_report(content, context)
             self.store.save_analysis(pid, content)
             self.store.save_blueprint(pid, content)
-            self.store.update(pid, status='BLUEPRINT_READY', ai_necessity=content['ai_necessity'], error=None)
-            self.store.message(pid, 'assistant', 'Your blueprint is ready. Review the three solution options, selected design, architecture, workflows, UX, data/API design, estimates, Red Team findings and implementation plan, then save the complete report as PDF.', message_type='status')
+            self.store.update(pid, status='BLUEPRINT_READY', review_gate=content['review_gate'], ai_necessity=content['ai_necessity'], error=None)
+            status = {'blocked': 'Your revised blueprint is saved as a draft with unresolved Red Team blockers.',
+                      'conditional': 'Your revised blueprint is saved with remaining risks to validate.',
+                      'passed': 'Your blueprint passed the design review.'}[content['review_gate']]
+            self.store.message(pid, 'assistant', status + ' Open Red Team to see each finding, the actual blueprint changes, verification evidence, and any decisions needed from you.', message_type='status')
         except Exception as exc:
             if isinstance(exc, AppError) and exc.code == 'generation_cancelled':
                 self.store.update(pid, status='DISCOVERY', error=None)
                 return
             message = exc.message if isinstance(exc, AppError) else 'Analysis was interrupted. Your discovery is saved; please run analysis again.'
             logger.warning('Analysis failed (%s)', type(exc).__name__)
-            self.store.update(pid, status='ERROR', error=message)
+            if review_seed:
+                # A failed revision never replaces the last saved blueprint or its review.
+                previous = self.store.latest('blueprints', pid)['content']
+                self.store.save_analysis(pid, previous)
+                self.store.update(pid, status='BLUEPRINT_READY', review_gate=previous.get('review_gate'), error=message)
+            else:
+                self.store.update(pid, status='ERROR', error=message)
         finally:
             self.store.update(pid, busy=False, active_generation_id=None)
 

@@ -128,11 +128,23 @@ export default function Documents({
       <div className="stack-lg">
         {error && <ErrorNote message={error} onRetry={() => setError("")} />}
 
+        <section className="documents-hero">
+          <div>
+            <span className="hero-kicker"><ShieldCheck size={13} /> Evidence library</span>
+            <h1>Ground the strategy in your real business.</h1>
+            <p>Upload source material once. shift.AI turns it into traceable context for discovery and analysis.</p>
+          </div>
+          <div className="documents-summary" aria-label="Document summary">
+            <span><strong>{documents?.length || 0}</strong> sources</span>
+            <span><strong>{(documents || []).filter((item) => item.status === "processed").length}</strong> ready</span>
+          </div>
+        </section>
+
         <div className="dropzone">
           <span className="empty-icon">
             <Upload size={22} />
           </span>
-          <h2>Bring your business into focus.</h2>
+          <h2>Add evidence to this project</h2>
           <p>
             Optional: process notes, spreadsheets and requirements help us ask
             better questions.
@@ -146,10 +158,10 @@ export default function Documents({
             <Upload size={16} aria-hidden="true" />
             Choose a file
           </button>
-          <small className="muted">
-            PDF, DOCX, PPTX, TXT, CSV, XLSX · up to {health?.max_upload_mb || 15} MB
-            · 20 files per project
-          </small>
+          <div className="file-types" aria-label="Accepted file types">
+            {['PDF', 'DOCX', 'PPTX', 'TXT', 'CSV', 'XLSX'].map((type) => <span key={type}>{type}</span>)}
+          </div>
+          <small className="muted">Up to {health?.max_upload_mb || 15} MB · 20 files per project</small>
         </div>
 
         {!documents ? (

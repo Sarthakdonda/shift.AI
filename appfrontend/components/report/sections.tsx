@@ -371,11 +371,11 @@ export function ReviewReport({ data }: { data: Analysis }) {
       {review && (
         <Section
           title="Red Team review"
-          caption={`Independent challenge · cycle ${data.red_team_cycle || 1} of 3`}
+          caption={`Design review · ${data.red_team_cycle || 1} total cycles`}
           index={0}
         >
           <p className="prose preserve">{review.summary}</p>
-          <Findings items={review.findings} />
+          {!data.review_ledger && <Findings items={review.findings} />}
         </Section>
       )}
       {!!data.red_team_history?.length && data.red_team_history.length > 1 && (

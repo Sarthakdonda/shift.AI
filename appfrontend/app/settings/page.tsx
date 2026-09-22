@@ -70,13 +70,23 @@ export default function Settings() {
   return (
     <Screen depth="root" tabs title="Settings" padded={false}>
       <div className="settings">
-        <div className="profile">
-          <span className="profile-avatar" aria-hidden="true">
-            {user.name.trim().slice(0, 1).toUpperCase() || "S"}
-          </span>
-          <strong>{user.name}</strong>
-          <span className="selectable">{user.email}</span>
-        </div>
+        <section className="profile">
+          <div className="profile-identity">
+            <span className="profile-avatar" aria-hidden="true">
+              {user.name.trim().slice(0, 1).toUpperCase() || "S"}
+            </span>
+            <div>
+              <span className="hero-kicker">Your workspace</span>
+              <strong>{user.name}</strong>
+              <span className="selectable">{user.email}</span>
+            </div>
+          </div>
+          <div className="profile-stats">
+            <span><b>{projects?.length || 0}</b> Projects</span>
+            <span><b>{complete}</b> Blueprints</span>
+            <span><b>{health?.database === "connected" ? "Live" : "Check"}</b> Sync</span>
+          </div>
+        </section>
 
         <div className="settings-group">
           <p className="eyebrow">Workspace</p>

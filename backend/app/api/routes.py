@@ -4,7 +4,7 @@ from app.core.auth import user
 from app.core.errors import AppError
 from app.core.config import get_settings
 from app.core.mailer import email_configured
-from app.models.schemas import ProjectCreate, ChatInput, ModelChoice, GenerationInput
+from app.models.schemas import ProjectCreate, ChatInput, ModelChoice, GenerationInput, ReviewInput
 from app.repositories.store import get_store, serialize, now
 from app.services.gemini_service import get_gemini
 from app.services.model_catalog import catalog
@@ -150,6 +150,87 @@ def blueprint(pid: str, account=Depends(user)):
     s = get_store()
     p = s.project(pid, account['id'])
     return serialize(s.latest('blueprints', pid)) if p['status'] == 'BLUEPRINT_READY' else None
+
+
+@router.post('/projects/{pid}/red-team/revise', status_code=202)
+def revise_blueprint(pid: str, body: ReviewInput, tasks: BackgroundTasks, account=Depends(user)):
+    """Resume from the saved design, preserving discovery and previous versions."""
+    import copy
+    svc = service()
+    p = svc.store.project(pid, account['id'], 'write')
+    svc.ai.require()
+    svc.store.acquire(pid, account['id'])
+    try:
+        p = svc.store.project(pid, account['id'], 'write')
+        saved = svc.store.latest('blueprints', pid)
+        if not saved or saved['version'] != body.version:
+            raise AppError('The blueprint changed. Refresh before submitting a review decision.', 409)
+        seed = copy.deepcopy(saved['content'])
+        if seed.get('source_revision', seed.get('final_report', {}).get('source_revision', 0)) != p.get('context_revision', 0):
+            raise AppError('Project evidence changed. Run analysis with the updated context first.', 409)
+        if not all(key in seed for key in ('solution', 'option_decision', 'architecture_report', 'planning_report', 'data_report', 'experience_report')):
+            raise AppError('This older blueprint needs a full analysis before targeted review.', 409)
+        if body.action != 'review':
+            finding = next((f for f in seed.get('review_ledger', []) if f['id'] == body.finding_id), None)
+            if not finding or finding['status'] not in ('open', 'needs_input'):
+                raise AppError('This finding is no longer awaiting a decision. Refresh the review.', 409)
+            response = {'finding_id': body.finding_id, 'action': body.action, 'response': body.response,
+                        'actor': account['id'], 'created_at': now().isoformat()}
+            seed['review_responses'] = [*seed.get('review_responses', []), response]
+            if body.action == 'accept_risk':
+                finding.update(status='accepted_risk', accepted_by=account['id'], acceptance_reason=body.response)
+            else:
+                finding.update(status='open', action='revise', requires_revision=True, user_response=body.response)
+            svc.store.message(pid, 'user', body.response, message_type='review_decision', finding_id=body.finding_id,
+                              review_action=body.action)
+        svc.store.update(pid, status='RED_TEAM_REVIEW')
+        tasks.add_task(svc.analyze, pid, account['id'], seed)
+        return {'status': 'RED_TEAM_REVIEW', 'project_id': pid}
+    except Exception:
+        svc.store.update(pid, busy=False)
+        raise
+
+
+@router.get('/projects/{pid}/blueprint/versions')
+def blueprint_versions(pid: str, account=Depends(user)):
+    s = get_store()
+    s.project(pid, account['id'])
+    return serialize(list(s.db.blueprints.find({'project_id': pid},
+        {'content': 0}).sort('version', -1)))
+
+
+@router.get('/projects/{pid}/blueprint/versions/{version}')
+def blueprint_version(pid: str, version: int, account=Depends(user)):
+    s = get_store()
+    s.project(pid, account['id'])
+    saved = s.db.blueprints.find_one({'project_id': pid, 'version': version})
+    if not saved:
+        raise AppError('Blueprint version not found.', 404)
+    return serialize(saved)
+
+
+@router.post('/projects/{pid}/blueprint/versions/{version}/restore')
+def restore_blueprint(pid: str, version: int, body: ReviewInput, account=Depends(user)):
+    s = get_store()
+    p = s.project(pid, account['id'], 'write')
+    s.acquire(pid, account['id'])
+    try:
+        p = s.project(pid, account['id'], 'write')
+        latest = s.latest('blueprints', pid)
+        if not latest or latest['version'] != body.version:
+            raise AppError('The blueprint changed. Refresh before restoring a version.', 409)
+        saved = s.db.blueprints.find_one({'project_id': pid, 'version': version})
+        if not saved:
+            raise AppError('Blueprint version not found.', 404)
+        content = saved['content']
+        if content.get('source_revision', content.get('final_report', {}).get('source_revision', 0)) != p.get('context_revision', 0):
+            raise AppError('This version uses older project evidence. Run analysis instead of restoring it.', 409)
+        restored = s.save_blueprint(pid, {**content, 'restored_from_version': version})
+        s.save_analysis(pid, restored['content'])
+        s.update(pid, status='BLUEPRINT_READY', review_gate=content.get('review_gate'), ai_necessity=content.get('ai_necessity'))
+        return serialize(restored)
+    finally:
+        s.update(pid, busy=False)
 
 
 @router.post('/projects/{pid}/blueprint/generate')

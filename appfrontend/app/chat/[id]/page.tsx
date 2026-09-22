@@ -318,6 +318,28 @@ export default function Conversation({
       title={project.name}
       subtitle={`${STAGES[stage]} · Stage ${stage + 1} of 5`}
       back="/chats"
+      below={
+        <div className="project-rail">
+          <div className="project-stage-line" aria-label={`Project stage ${stage + 1} of 5`}>
+            {STAGES.map((label, index) => (
+              <span
+                key={label}
+                title={label}
+                data-state={index < stage ? "done" : index === stage ? "active" : "next"}
+              />
+            ))}
+          </div>
+          <div className="project-rail-actions">
+            <span><b>{STAGES[stage]}</b> in progress</span>
+            <Link href={`/chat/${id}/documents`}>
+              <FolderOpen size={14} /> {documents.length || "Add"} docs
+            </Link>
+            <Link href={`/chat/${id}/report`}>
+              <ScrollText size={14} /> Report
+            </Link>
+          </div>
+        </div>
+      }
       actions={
         <button
           type="button"

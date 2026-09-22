@@ -8,6 +8,160 @@ from app.core.errors import AppError
 from app.services.gemini_service import GeminiService
 
 
+def test_review_decision_creates_version_and_does_not_repeat_discovery(setup, project):
+    client, store, ai, _ = setup
+    client.post(f'/api/projects/{project}/discovery/next')
+    first = client.get(f'/api/projects/{project}/blueprint').json()
+    fid = first['content']['review_ledger'][0]['id']
+    ai.calls.clear()
+    response = client.post(f'/api/projects/{project}/red-team/revise', json={
+        'version': 1, 'finding_id': fid, 'action': 'answer', 'response': 'We can use the supported accounting CSV import.'})
+    assert response.status_code == 202
+    second = client.get(f'/api/projects/{project}/blueprint').json()
+    assert second['version'] == 2
+    assert 'Discovery' not in ai.calls and 'WorkflowAnalysis' not in ai.calls
+    assert second['content']['review_responses'][-1]['response'] == 'We can use the supported accounting CSV import.'
+    assert client.get(f'/api/projects/{project}/blueprint/versions/1').json() == first
+    assert len(client.get(f'/api/projects/{project}/blueprint/versions').json()) == 2
+    assert client.post(f'/api/projects/{project}/red-team/revise', json={'version': 1}).status_code == 409
+    assert not store.project(project, 'local-workspace')['busy']
+
+
+def test_review_imports_legacy_findings_before_reviewer_can_omit_them(setup, project, monkeypatch):
+    client, store, ai, _ = setup
+    client.post(f'/api/projects/{project}/discovery/next')
+    legacy = client.get(f'/api/projects/{project}/blueprint').json()['content']
+    legacy.pop('review_ledger')
+    legacy.pop('review_gate')
+    legacy['red_team']['findings'] = [{
+        'category': 'OPERATIONS', 'severity': 'HIGH', 'issue': 'Legacy unresolved dependency',
+        'reason': 'The business dependency has not been validated.',
+        'mitigation': 'Validate the dependency with the owner.', 'requires_revision': False,
+    }]
+    store.save_blueprint(project, legacy)
+    original = ai.generate_structured
+
+    def omit_findings(instruction, context, schema):
+        if schema.__name__ == 'RedTeam':
+            assert context['review_ledger'][0]['issue'] == 'Legacy unresolved dependency'
+            return schema.model_validate({'summary': 'No new findings.', 'findings': []})
+        return original(instruction, context, schema)
+
+    monkeypatch.setattr(ai, 'generate_structured', omit_findings)
+    assert client.post(f'/api/projects/{project}/red-team/revise', json={'version': 2}).status_code == 202
+    saved = client.get(f'/api/projects/{project}/blueprint').json()
+    assert saved['version'] == 3
+    assert saved['content']['review_gate'] == 'blocked'
+    assert saved['content']['review_ledger'][0]['status'] == 'open'
+
+
+def test_review_risk_acceptance_is_explicit_and_not_a_fix(setup, project):
+    client, _, _, _ = setup
+    client.post(f'/api/projects/{project}/discovery/next')
+    first = client.get(f'/api/projects/{project}/blueprint').json()
+    fid = first['content']['review_ledger'][0]['id']
+    assert client.post(f'/api/projects/{project}/red-team/revise', json={
+        'version': 1, 'finding_id': fid, 'action': 'accept_risk', 'response': 'Pilot owner accepts the dependency until access is validated.'}).status_code == 202
+    bp = client.get(f'/api/projects/{project}/blueprint').json()
+    finding = bp['content']['review_ledger'][0]
+    assert finding['status'] == 'accepted_risk'
+    assert finding['accepted_by'] == 'local-workspace'
+    assert bp['content']['review_gate'] == 'conditional'
+    assert 'Risk accepted by' in str(bp['content']['final_report'])
+
+
+def test_review_failure_keeps_last_saved_blueprint(setup, project, monkeypatch):
+    client, store, ai, _ = setup
+    client.post(f'/api/projects/{project}/discovery/next')
+    first = client.get(f'/api/projects/{project}/blueprint').json()
+    def broken(*args):
+        raise ValueError('Provider unavailable')
+    monkeypatch.setattr(ai, 'generate_structured', broken)
+    assert client.post(f'/api/projects/{project}/red-team/revise', json={'version': 1}).status_code == 202
+    assert client.get(f'/api/projects/{project}/blueprint').json() == first
+    assert len(client.get(f'/api/projects/{project}/blueprint/versions').json()) == 1
+    assert not store.project(project, 'local-workspace')['busy']
+    assert store.project(project, 'local-workspace')['error']
+
+
+def test_review_restore_preserves_versions_and_rejects_stale_context(setup, project):
+    client, store, _, _ = setup
+    client.post(f'/api/projects/{project}/discovery/next')
+    first = client.get(f'/api/projects/{project}/blueprint').json()
+    client.post(f'/api/projects/{project}/red-team/revise', json={'version': 1})
+    restored = client.post(f'/api/projects/{project}/blueprint/versions/1/restore', json={'version': 2})
+    assert restored.status_code == 200 and restored.json()['version'] == 3
+    assert restored.json()['content']['restored_from_version'] == 1
+    assert client.get(f'/api/projects/{project}/blueprint/versions/1').json() == first
+    store.invalidate(project)
+    assert client.post(f'/api/projects/{project}/red-team/revise', json={'version': 3}).status_code == 409
+    assert client.post(f'/api/projects/{project}/blueprint/versions/1/restore', json={'version': 3}).status_code == 409
+    assert not store.project(project, 'local-workspace')['busy']
+
+
+def test_review_rejects_invalid_finding_and_busy_project(setup, project):
+    client, store, _, _ = setup
+    client.post(f'/api/projects/{project}/discovery/next')
+    assert client.post(f'/api/projects/{project}/red-team/revise', json={
+        'version': 1, 'finding_id': 'unknown', 'action': 'answer', 'response': 'A real business answer.'}).status_code == 409
+    assert client.post(f'/api/projects/{project}/red-team/revise', json={
+        'version': 1, 'finding_id': 'unknown', 'action': 'accept_risk', 'response': ' '}).status_code == 422
+    store.acquire(project, 'local-workspace')
+    assert client.post(f'/api/projects/{project}/red-team/revise', json={'version': 1}).status_code == 409
+    assert store.project(project, 'local-workspace')['busy']
+
+
+def test_review_question_answer_resumes_targeted_repair(setup, project, monkeypatch):
+    client, store, ai, _ = setup
+    original = ai.generate_structured
+    def review(instruction, context, schema):
+        if schema.__name__ == 'RedTeam':
+            ai.calls.append('RedTeam')
+            ledger = context.get('review_ledger', [])
+            finding = {'id': ledger[0]['id'] if ledger else '', 'category': 'OPERATIONS', 'severity': 'HIGH',
+                       'issue': 'Pilot reconciliation owner is unknown', 'reason': 'Rollout needs an accountable owner.',
+                       'mitigation': 'Name the owner in the delivery plan.', 'requires_revision': True,
+                       'affected_sections': ['timeline'], 'question': 'Who owns pilot reconciliation?', 'action': 'ask_user'}
+            if context.get('revision_plan'):
+                return schema.model_validate({'summary': 'The answer is now reflected in the plan.', 'findings': [],
+                    'assessments': [{'finding_id': ledger[0]['id'], 'status': 'fixed', 'rationale': 'Named owner and rollout gate added.',
+                        'section': 'timeline', 'quote': 'The finance lead owns reconciliation before rollout.'}]})
+            if context.get('review_responses'):
+                finding.update(action='revise', decision='Add the finance lead as the reconciliation owner.')
+            return schema.model_validate({'summary': 'Validate ownership.', 'findings': [finding]})
+        result = original(instruction, context, schema)
+        if schema.__name__ == 'PlanningReport' and context.get('revision_plan'):
+            next(c for c in result.chapters if c.key == 'timeline').narrative = 'The finance lead owns reconciliation before rollout.'
+        return result
+    monkeypatch.setattr(ai, 'generate_structured', review)
+    client.post(f'/api/projects/{project}/discovery/next')
+    first = client.get(f'/api/projects/{project}/blueprint').json()
+    assert first['content']['review_gate'] == 'blocked'
+    assert first['content']['review_run_cycle'] == 1  # No wasteful rewrite without the missing fact.
+    finding = first['content']['review_ledger'][0]
+    assert finding['status'] == 'needs_input'
+    ai.calls.clear()
+    response = client.post(f'/api/projects/{project}/red-team/revise', json={
+        'version': 1, 'finding_id': finding['id'], 'action': 'answer', 'response': 'The finance lead owns pilot reconciliation.'})
+    assert response.status_code == 202
+    updated = client.get(f'/api/projects/{project}/blueprint').json()
+    assert updated['version'] == 2 and updated['content']['review_gate'] == 'passed'
+    assert updated['content']['review_ledger'][0]['status'] == 'fixed'
+    assert ai.calls.count('PlanningReport') == 1 and 'ArchitectureReport' not in ai.calls and 'Discovery' not in ai.calls
+    assert 'The finance lead owns reconciliation before rollout.' in str(updated['content']['final_report'])
+
+
+def test_review_history_and_mutations_enforce_project_ownership(setup, project):
+    from bson import ObjectId
+    client, store, _, _ = setup
+    client.post(f'/api/projects/{project}/discovery/next')
+    store.db.projects.update_one({'_id': ObjectId(project)}, {'$set': {'owner_id': 'another-user'}})
+    for path in ('blueprint/versions', 'blueprint/versions/1'):
+        assert client.get(f'/api/projects/{project}/{path}').status_code == 404
+    assert client.post(f'/api/projects/{project}/red-team/revise', json={'version': 1}).status_code == 404
+    assert client.post(f'/api/projects/{project}/blueprint/versions/1/restore', json={'version': 1}).status_code == 404
+
+
 def test_health_boots_without_keys(setup):
     client, _, _, settings = setup
     with patch('app.api.routes.get_store', side_effect=AssertionError('liveness must not query the database')):

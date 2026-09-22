@@ -9,6 +9,8 @@ import {
   Check,
   LoaderCircle,
   Lock,
+  ShieldCheck,
+  Sparkles,
   UserRound,
 } from "lucide-react";
 import { Screen } from "@/components/shell/screen";
@@ -89,14 +91,21 @@ export function AccessScreen({ mode }: { mode: "signin" | "signup" }) {
     <Screen depth="root" title={signup ? "Create account" : "Sign in"}>
       <div className="access" style={{ padding: 0 }}>
         <div className="access-brand">
-          <BrandMark large />
-          <div>
+          <div className="access-brand-row">
+            <BrandMark large />
+            <span className="access-edition">Strategy workspace</span>
+          </div>
+          <div className="access-copy">
             <h1>{signup ? "Create your account." : "Welcome back."}</h1>
             <p>
               {signup
                 ? "A fresh perspective on your business starts here."
                 : "Sign in and pick up exactly where you left off."}
             </p>
+          </div>
+          <div className="access-benefits" aria-label="Product benefits">
+            <span><Sparkles size={14} /> Guided discovery</span>
+            <span><ShieldCheck size={14} /> Private workspace</span>
           </div>
         </div>
 
@@ -114,7 +123,11 @@ export function AccessScreen({ mode }: { mode: "signin" | "signup" }) {
             </Link>
           </div>
         ) : (
-          <>
+          <div className="access-card">
+            <div className="access-card-head">
+              <span>{signup ? "Set up your workspace" : "Continue your work"}</span>
+              <small>{signup ? "Takes less than a minute" : "Secure account access"}</small>
+            </div>
             <form onSubmit={submit} noValidate aria-busy={busy}>
               {signup && (
                 <Field
@@ -221,11 +234,11 @@ export function AccessScreen({ mode }: { mode: "signin" | "signup" }) {
                 {signup ? "Sign in" : "Create one"}
               </Link>
             </p>
-            <p className="note">
+            <p className="access-browser-note">
               Google sign-in needs a full browser. Open the website in Chrome to
               use it, then sign in here with your email.
             </p>
-          </>
+          </div>
         )}
       </div>
     </Screen>

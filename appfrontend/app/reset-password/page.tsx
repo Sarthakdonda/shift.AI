@@ -90,7 +90,7 @@ function ResetPassword() {
         </div>
 
         {state === "invalid" ? (
-          <div className="stack">
+          <div className="access-card stack">
             {error && <ErrorNote message={error} />}
             <Link className="btn btn-primary btn-block" href="/forgot-password">
               Request a new link
@@ -101,7 +101,12 @@ function ResetPassword() {
             </Link>
           </div>
         ) : (
-          <form onSubmit={submit} noValidate aria-busy={locked}>
+          <div className="access-card">
+            <div className="access-card-head">
+              <span>Secure your account</span>
+              <small>Choose a strong passphrase</small>
+            </div>
+            <form onSubmit={submit} noValidate aria-busy={locked}>
             <Field
               id="new-password"
               label="New password"
@@ -146,7 +151,8 @@ function ResetPassword() {
                 <ArrowRight size={17} aria-hidden="true" />
               )}
             </button>
-          </form>
+            </form>
+          </div>
         )}
       </div>
     </Screen>

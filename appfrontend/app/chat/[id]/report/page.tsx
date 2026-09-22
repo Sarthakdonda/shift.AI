@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { use, useCallback, useEffect, useMemo, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Copy,
   Download,
@@ -29,6 +29,7 @@ import {
 } from "@/components/report/sections";
 import { API_BASE, api, date, humanize } from "@/lib/api";
 import { blueprintMarkdown } from "@/lib/blueprint";
+import { ReviewWorkbench } from "@/components/review/workbench";
 import type { Analysis, Blueprint, Project } from "@/lib/types";
 
 const VIEWS = [
@@ -50,6 +51,7 @@ export default function Report({ params }: { params: Promise<{ id: string }> }) 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [view, setView] = useState<View>("diagnosis");
+  const openedProject = useRef<string | null>(null);
   const [share, setShare] = useState(false);
   const [downloading, setDownloading] = useState("");
 
@@ -92,10 +94,13 @@ export default function Report({ params }: { params: Promise<{ id: string }> }) 
 
   // Open on the most complete section the project has actually produced.
   useEffect(() => {
-    if (loading) return;
+    if (loading || openedProject.current === id) return;
     const best = [...VIEWS].reverse().find(([key]) => available[key]);
-    if (best) setView(best[0]);
-  }, [loading, available]);
+    if (best) {
+      openedProject.current = id;
+      setView(best[0]);
+    }
+  }, [loading, available, id]);
 
   async function download(format: "pdf" | "docx") {
     if (!blueprint || !project) return;
@@ -207,6 +212,19 @@ export default function Report({ params }: { params: Promise<{ id: string }> }) 
     >
       <div className="report">
         {error && <ErrorNote message={error} onRetry={() => setError("")} />}
+        {project.error && <ErrorNote message={project.error} />}
+
+        {anything && (
+          <section className="report-cover">
+            <span className="hero-kicker"><Sparkles size={13} /> Strategy dossier</span>
+            <h1>{project.name}</h1>
+            <p>A structured record of the diagnosis, recommended direction, risks, and implementation plan.</p>
+            <div className="report-cover-meta">
+              <span><b>{Object.values(available).filter(Boolean).length}/4</b> sections ready</span>
+              <span><b>{analysis?.review_gate === "blocked" ? "Draft · blockers open" : analysis?.review_gate === "conditional" ? "Remaining risks" : humanize(project.status)}</b> status</span>
+            </div>
+          </section>
+        )}
 
         {project.busy && (
           <p className="note note-accent" role="status">
@@ -239,7 +257,12 @@ export default function Report({ params }: { params: Promise<{ id: string }> }) 
         ) : view === "solution" ? (
           analysis?.solution && <SolutionReport solution={analysis.solution} />
         ) : view === "review" ? (
-          analysis && <ReviewReport data={analysis} />
+          analysis && <>
+            <ReviewWorkbench data={analysis} projectId={id}
+              version={["viewer", "reviewer"].includes(project.access_role || "") ? undefined : blueprint?.version}
+              busy={!!project.busy} onRefresh={load} />
+            <ReviewReport data={analysis} />
+          </>
         ) : (
           blueprint && (
             <>

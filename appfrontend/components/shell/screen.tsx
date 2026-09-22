@@ -73,8 +73,11 @@ export function TabBar() {
             data-active={active ? "true" : "false"}
             aria-current={active ? "page" : undefined}
           >
-            <Icon size={21} strokeWidth={active ? 2.2 : 1.8} aria-hidden="true" />
+            <span className="tab-icon">
+              <Icon size={21} strokeWidth={active ? 2.2 : 1.8} aria-hidden="true" />
+            </span>
             <span>{label}</span>
+            <span className="tab-indicator" aria-hidden="true" />
           </Link>
         );
       })}
@@ -134,7 +137,7 @@ export function Screen({
   }, [variant]);
 
   return (
-    <div className="frame">
+    <div className="frame" data-tabs={tabs ? "true" : "false"}>
       <div>
         <AppBar
           title={title}

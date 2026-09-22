@@ -170,3 +170,99 @@ def test_failed_report_generation_preserves_previous_blueprint(setup, project, m
     assert store.latest('blueprints', project) == previous
     assert store.project(project, 'local-workspace')['status'] == 'ERROR'
     assert not store.project(project, 'local-workspace')['busy']
+
+
+def test_red_team_repairs_only_planning_and_verifies_actual_change():
+    from app.models.schemas import RedTeam
+    class Reviewer(FakeGemini):
+        def generate_structured(self, instruction, context, schema):
+            if schema is RedTeam:
+                self.calls.append('RedTeam')
+                if not context.get('review_ledger'):
+                    return schema.model_validate({'summary': 'Missing pilot exit gate.', 'findings': [{
+                        'category': 'DELIVERY', 'severity': 'HIGH', 'issue': 'No reconciliation gate',
+                        'reason': 'The pilot needs an explicit exit condition.', 'mitigation': 'Add reconciliation before rollout.',
+                        'requires_revision': True, 'action': 'revise', 'affected_sections': ['timeline'],
+                        'decision': 'Require reconciliation before rollout.', 'validation': 'Timeline contains a gate.'}]})
+                fid = context['review_ledger'][0]['id']
+                return schema.model_validate({'summary': 'The exit gate is now in the timeline.', 'findings': [],
+                    'assessments': [{'finding_id': fid, 'status': 'fixed', 'rationale': 'Rollout is gated on reconciliation.',
+                                     'section': 'timeline', 'quote': 'Reconcile every pilot invoice before rollout.'}]})
+            result = super().generate_structured(instruction, context, schema)
+            if schema.__name__ == 'PlanningReport' and context.get('revision_plan'):
+                next(c for c in result.chapters if c.key == 'timeline').narrative = 'Reconcile every pilot invoice before rollout.'
+            return result
+    ai = Reviewer()
+    result = build_graph(ai, lambda *_: None).invoke({'context': {}}, {'recursion_limit': 45})
+    assert result['review_gate'] == 'passed'
+    assert result['review_ledger'][0]['status'] == 'fixed'
+    assert ai.calls.count('PlanningReport') == 2
+    assert ai.calls.count('Solution') == ai.calls.count('ArchitectureReport') == ai.calls.count('DataReport') == 1
+    change = result['design_changes'][0]
+    assert change['changed_sections'] == ['timeline']
+    assert change['diffs'][0]['before'] != change['diffs'][0]['after']
+    assert change['finding_ids'] == [result['review_ledger'][0]['id']]
+
+
+def test_red_team_omission_and_fabricated_evidence_cannot_close_findings():
+    from app.models.schemas import RedTeam
+    from app.workflows.review import reconcile, review_gate
+    original = FakeGemini(always_revise=True).generate_structured('', {}, RedTeam).model_dump()
+    state = {'red_team_cycle': 0, 'solution': {'summary': 'A real design statement exists here.'}}
+    ledger = reconcile(state, original)
+    state['review_ledger'] = ledger
+    omitted = reconcile(state, {'findings': [], 'assessments': []})
+    assert omitted[0]['status'] == 'open' and review_gate(omitted) == 'blocked'
+    assessment = {'finding_id': ledger[0]['id'], 'status': 'fixed', 'rationale': 'Fixed.',
+                  'section': 'solution', 'quote': 'This fabricated fix never existed.', 'residual_risk': ''}
+    result = reconcile(state, {'findings': [], 'assessments': [assessment]})
+    assert result[0]['status'] == 'open'
+    # Even a real quote does not prove a design changed.
+    assessment['quote'] = state['solution']['summary']
+    assert reconcile(state, {'findings': [], 'assessments': [assessment]})[0]['status'] == 'open'
+
+    # A later edit invalidates a prior verification until the reviewer checks it again.
+    state['review_ledger'][0].update(status='fixed', verified_section='solution')
+    state['design_changes'] = [{'cycle': 1, 'changed_sections': ['solution']}]
+    assert reconcile(state, {'findings': [], 'assessments': []})[0]['status'] == 'open'
+
+
+def test_red_team_can_reconsider_the_selected_option():
+    from app.models.schemas import RedTeam
+    class Reconsider(FakeGemini):
+        def generate_structured(self, instruction, context, schema):
+            result = super().generate_structured(instruction, context, schema)
+            if schema is RedTeam:
+                result.findings[0].requires_revision = not bool(context.get('revision_plan'))
+                result.findings[0].action = 'reconsider_solution'
+                result.findings[0].affected_sections = ['option_decision']
+            elif schema.__name__ == 'DecisionMatrix' and context.get('revision_plan'):
+                result.selected = 'lean'
+                result.selection_reason = 'Choose the lean option after review.'
+                for criterion in result.criteria:
+                    for score in criterion.scores:
+                        if score.tier in ('lean', 'balanced'):
+                            score.tier = 'lean' if score.tier == 'balanced' else 'balanced'
+                for reason in result.rejection_reasons:
+                    if reason.tier == 'lean':
+                        reason.tier = 'balanced'
+            elif schema.__name__ in ('ArchitectureReport', 'ExperienceReport', 'DataReport', 'PlanningReport') and context.get('revision_plan'):
+                result.selected_option = 'lean'
+            return result
+    # Keep the fixture's comparison internally valid when changing selection.
+    ai = Reconsider()
+    result = build_graph(ai, lambda *_: None).invoke({'context': {}}, {'recursion_limit': 45})
+    assert result['option_decision']['selected'] == 'lean'
+    assert ai.calls.count('Necessity') == 2
+    assert ai.calls.count('Option') == 6
+    assert 'option_decision' in result['design_changes'][0]['changed_sections']
+
+
+def test_unresolved_review_blocks_export_even_after_cycle_limit():
+    from app.services.report_service import assemble_report
+    state = build_graph(FakeGemini(always_revise=True), lambda *_: None).invoke({'context': {}}, {'recursion_limit': 45})
+    assert state['review_run_cycle'] == 3
+    assert state['review_gate'] == 'blocked'
+    report = assemble_report(state, {'project': {'name': 'Pilot', 'initial_problem': 'Invoice workflow'}, 'output_language': 'English'})
+    assert 'DRAFT' in report['sections'][0]['narrative']
+    assert all(f['status'] == 'open' for f in state['review_ledger'])

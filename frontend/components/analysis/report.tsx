@@ -360,13 +360,13 @@ export function SolutionReport({
       {r && (
         <Section
           title="An independent second look"
-          subtitle={`Red Team review · ${data.red_team_cycle || 1} of 3 maximum review cycles`}
+          subtitle={`Red Team review · ${data.red_team_cycle || 1} total review cycles`}
         >
           <div className="review-intro">
             <ShieldCheck size={24} />
             <p>{r.summary}</p>
           </div>
-          <Findings findings={r.findings} />
+          {!data.review_ledger && <Findings findings={r.findings} />}
           {!!data.solution_history?.length && (
             <details className="review-history">
               <summary>

@@ -21,7 +21,11 @@ def estimate_text(e):
 def finding_tables(findings):
     return [table(f['issue'], ['Review field', 'Assessment'], [
         ['Category / severity', f"{f['category']} / {f['severity']}"], ['Finding / impact', f['reason']],
-        ['Mitigation', f['mitigation']], ['Status', 'Requires further attention' if f['requires_revision'] else 'Mitigation proposed; validate before implementation'],
+        ['Mitigation', f['mitigation']], ['Status', f.get('status', 'Requires further attention' if f['requires_revision'] else 'Mitigation proposed; validate before implementation')],
+        *([['Decision', f.get('decision', '')], ['Affected sections', ', '.join(f.get('affected_sections', []))],
+           ['Verification', f.get('verification', '')], ['Design evidence', f.get('verification_quote', '')],
+           ['Remaining risk', f.get('residual_risk', '')], ['User decision needed', f.get('question', '')],
+           ['Risk accepted by', f.get('accepted_by', '')], ['Acceptance reason', f.get('acceptance_reason', '')]] if f.get('id') else []),
     ]) for f in findings]
 
 
@@ -53,7 +57,11 @@ def assemble_report(content, context):
         generated[key] = {**generated[key], 'items': list(dict.fromkeys([*generated[key]['items'], *values]))}
     out = []
     add = out.append
-    add(chapter('executive', 'Executive summary', conclusion['executive_summary']))
+    gate = content.get('review_gate')
+    gate_note = {'blocked': 'DRAFT — unresolved Red Team blockers; not ready for implementation.',
+                 'conditional': 'CONDITIONAL — residual risks or user-accepted risks remain.',
+                 'passed': 'Design review passed. This is a review of the proposal, not evidence of implementation testing.'}.get(gate, '')
+    add(chapter('executive', 'Executive summary', '\n\n'.join(x for x in [gate_note, conclusion['executive_summary']] if x)))
     add(chapter('problem', 'Original request and underlying problem', project['initial_problem'],
                 [f"Normalized problem: {r['root_problem']}", f"Requested solution: {r['user_request']}"]))
     add(chapter('context', 'Business context, objectives and success definition', w['business_context']))
@@ -141,10 +149,29 @@ def assemble_report(content, context):
     add(chapter('risks', 'Risk register and mitigations', 'Mitigations are proposed controls; residual risks and validation actions remain visible.',
         tables=[table(risk['risk'], ['Risk field', 'Assessment'], [[k.replace('_', ' ').title(), val] for k, val in risk.items() if k != 'risk']) for risk in planning['risks']] + finding_tables(v['risks'])))
     review_tables = []
+    review_tables.extend(finding_tables(content.get('review_ledger', [])))
     for i, review in enumerate(content['red_team_history']):
         review_tables.append(table(f'Red Team cycle {i+1}', ['Summary', 'Review scope'], [[review['summary'], 'Selected solution and all implementation design parts']]))
         review_tables.extend(finding_tables(review['findings']))
     changes = [f"Cycle {x['cycle']} changed sections: {', '.join(x['changed_sections']) or 'No section content changed; findings remain subject to review.'}" for x in content.get('design_changes', [])]
+    for change in content.get('design_changes', []):
+        changes.extend(change.get('decisions', []))
+        for diff in change.get('diffs', []):
+            # Keep exported comparisons readable; the exact structured diffs are
+            # saved in the blueprint and available in the interactive review.
+            def text_summary(value):
+                if value is None:
+                    return 'Not present'
+                if isinstance(value, str):
+                    return value
+                if isinstance(value, list):
+                    return '\n'.join(text_summary(item) for item in value)
+                if isinstance(value, dict):
+                    return '\n'.join(k.replace('_', ' ').title() + ': ' + text_summary(v)
+                                     for k, v in value.items() if k not in {'key', 'component_refs', 'entity_refs', 'integration_refs'})
+                return str(value)
+            review_tables.append(table('Change: ' + diff['section'], ['Before', 'After'], [[
+                text_summary(diff['before']), text_summary(diff['after'])]]))
     # Full intermediate proposals remain in saved history, not the final design.
     add(chapter('red_team', 'Independent Red Team review and design changes', content['red_team']['summary'], changes, review_tables))
     add(chapter('conclusion', 'Final recommendation and immediate next actions', conclusion['recommendation'], conclusion['next_steps']))

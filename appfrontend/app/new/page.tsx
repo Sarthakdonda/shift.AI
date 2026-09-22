@@ -83,14 +83,25 @@ export default function NewProject() {
   return (
     <Screen depth="root" tabs title="New project" padded={false}>
       <form className="form-screen" onSubmit={submit} noValidate aria-busy={busy}>
-        <div className="form-intro">
-          <h1>What should we look into?</h1>
+        <div className="form-intro project-brief-hero">
+          <span className="hero-kicker"><Sparkles size={13} /> New strategy brief</span>
+          <h1>Start with the situation,<br />not the solution.</h1>
           <p>
-            Describe what happens today. Discovery starts from your words, not a
-            template.
+            Give your AI strategist enough context to ask sharper questions and
+            uncover the real constraint.
           </p>
+          <div className="brief-steps" aria-label="Project workflow">
+            <span data-active="true"><b>01</b> Brief</span>
+            <span><b>02</b> Discover</span>
+            <span><b>03</b> Blueprint</span>
+          </div>
         </div>
 
+        <div className="form-panel">
+          <div className="form-panel-head">
+            <div><span>01</span><h2>Frame the challenge</h2></div>
+            <small>Required fields are marked</small>
+          </div>
         <Field
           id="project-name"
           label="Project name"
@@ -146,8 +157,9 @@ export default function NewProject() {
             <ArrowRight size={17} aria-hidden="true" />
           )}
         </button>
+        </div>
 
-        <div className="stack">
+        <div className="stack template-section">
           <p className="eyebrow">
             <Lightbulb
               size={12}

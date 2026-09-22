@@ -162,7 +162,7 @@ export type Solution = {
   }[];
   success_metrics: string[];
 };
-export type Analysis = {
+export type Analysis = import("./review").ReviewData & {
   final_report?: ImplementationDocument;
   workflow_analysis?: {
     business_context: string;

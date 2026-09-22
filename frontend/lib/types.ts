@@ -101,7 +101,7 @@ export type Evidence = {
   evidence: string[];
   confidence: number;
 };
-export type Analysis = {
+export type Analysis = import("./review").ReviewData & {
   final_report?: import("@/components/blueprint/implementation-report").ImplementationDocument;
   workflow_analysis?: {
     business_context: string;

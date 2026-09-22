@@ -41,6 +41,7 @@ import {
   BulletList,
 } from "@/components/analysis/report";
 import { blueprintMarkdown } from "@/components/blueprint/export";
+import { ReviewWorkbench } from "@/components/review/workbench";
 
 export default function Workspace({
   params,
@@ -559,6 +560,9 @@ export default function Workspace({
                 ? analysis.solution
                 : analysis.red_team) ? (
               <>
+                {tab === "red-team" && <ReviewWorkbench data={analysis} projectId={id}
+                  version={["viewer", "reviewer"].includes(project.access_role || "") ? undefined : blueprint?.version}
+                  busy={busy} onRefresh={load} />}
                 {tab === "analysis" ? (
                   <>
                     <DiagnosisReport data={analysis} />
@@ -590,6 +594,12 @@ export default function Workspace({
           {tab === "blueprint" &&
             (blueprint ? (
               <div className="blueprint-page">
+                {blueprint.content.review_gate && blueprint.content.review_gate !== "passed" && (
+                  <div className="rt-notice" role="status">
+                    <strong>{blueprint.content.review_gate === "blocked" ? "Draft — unresolved Red Team blockers." : "Reviewed with remaining risks."}</strong>{" "}
+                    <Link href={`/project/${id}/red-team`}>Open Red Team to review changes and decisions.</Link>
+                  </div>
+                )}
                 <div className="blueprint-toolbar">
                   <div>
                     <span className="badge badge-green">

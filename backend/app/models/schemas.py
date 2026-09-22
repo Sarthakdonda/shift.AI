@@ -172,9 +172,42 @@ class Finding(BaseModel):
     requires_revision: bool
 
 
+class ReviewFinding(Finding):
+    id: str = ''
+    action: Literal['revise', 'reconsider_solution', 'ask_user', 'retain_risk'] = 'revise'
+    affected_sections: list[str] = Field(default_factory=list, description='Exact chapter keys, solution, or option_decision.')
+    decision: str = ''
+    validation: str = ''
+    question: str = ''
+
+
+class ReviewAssessment(BaseModel):
+    finding_id: str
+    status: Literal['fixed', 'mitigated', 'needs_input', 'open']
+    rationale: str
+    section: str = Field(description='Exact chapter key or solution or option_decision.')
+    quote: str = Field(description='Verbatim text from the current design supporting the assessment.')
+    residual_risk: str = ''
+
+
 class RedTeam(BaseModel):
     summary: str
-    findings: list[Finding]
+    findings: list[ReviewFinding]
+    assessments: list[ReviewAssessment] = Field(default_factory=list)
+
+
+class ReviewInput(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+    version: int = Field(ge=1)
+    finding_id: str = Field(default='', max_length=80)
+    response: str = Field(default='', max_length=12000)
+    action: Literal['review', 'answer', 'accept_risk'] = 'review'
+
+    @model_validator(mode='after')
+    def response_required(self):
+        if self.action != 'review' and (not self.finding_id or len(self.response) < 5):
+            raise ValueError('Provide the finding ID and an answer or acceptance reason (at least 5 characters).')
+        return self
 
 
 class Dimension(BaseModel):
