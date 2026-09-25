@@ -6,7 +6,7 @@ from app.repositories.store import Store
 from app.api import routes
 from app import main
 from app.core import auth
-from app.api import workspaces, deliverables, exports, portability, outcomes, localization, integrations
+from app.api import workspaces, deliverables, exports, portability, outcomes, localization, integrations, applications
 from tests.fakes import FakeGemini
 
 settings = get_settings()
@@ -35,8 +35,13 @@ deliverables.get_store = lambda: store
 exports.get_store = lambda: store
 portability.get_store = lambda: store
 deliverables.get_gemini = lambda: fake
-for module in (outcomes, localization, integrations):
+for module in (outcomes, localization, integrations, applications):
     module.get_store = lambda: store
-for module in (localization, integrations):
+for module in (localization, integrations, applications):
     module.get_gemini = lambda: fake
+from app.services import application_runner
+from app.core.errors import AppError
+def unavailable_sandbox(*args):
+    raise AppError('Docker unavailable in the isolated browser fixture. No runtime checks executed.', 503, 'sandbox_unavailable')
+application_runner.build_and_test = unavailable_sandbox
 app = main.app

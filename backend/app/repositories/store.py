@@ -29,6 +29,8 @@ class Store:
         self.db = db
 
     def indexes(self):
+        from app.repositories.builder_migration import upgrade
+        upgrade(self.db)
         self.db.generation_requests.create_index('expires_at', expireAfterSeconds=0)
         self.db.users.create_index('email', unique=True)
         self.db.auth_attempts.create_index('expires_at', expireAfterSeconds=0)
@@ -129,8 +131,12 @@ class Store:
 
     def delete(self, pid, owner):
         self.project(pid, owner, 'admin')
+        if self.db.application_previews.find_one({'project_id': pid, 'status': 'running'}):
+            raise AppError('Stop this project\'s application preview before deleting it.', 409)
+        if self.db.application_deployments.find_one({'project_id': pid, 'status': {'$in': ['queued', 'pushing', 'submitting', 'deploying', 'health_pending', 'live']}}):
+            raise AppError('This project has an active or live deployment. Preserve its release history and remove the hosting deployment before deleting the project.', 409)
         self.acquire(pid, owner)
-        for name in ['messages', 'documents', 'document_chunks', 'analyses', 'blueprints', 'artifacts', 'comments', 'reviews', 'outcomes', 'usage', 'notifications', 'activity', 'restored_archives', 'generation_requests']:
+        for name in ['messages', 'documents', 'document_chunks', 'analyses', 'blueprints', 'artifacts', 'comments', 'reviews', 'outcomes', 'usage', 'notifications', 'activity', 'restored_archives', 'generation_requests', 'application_specs', 'application_builds', 'application_deployments']:
             self.db[name].delete_many({'project_id': pid})
         self.db.projects.delete_one({'_id': ObjectId(pid)})
 

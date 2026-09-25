@@ -11,7 +11,7 @@ def setup(monkeypatch):
     from app import main
     from app.api import routes
     from app.core import auth
-    from app.api import workspaces, deliverables, exports, portability, outcomes, localization, integrations
+    from app.api import workspaces, deliverables, exports, portability, outcomes, localization, integrations, applications
     settings = get_settings()
     monkeypatch.setattr(settings, 'google_client_id', '')
     monkeypatch.setattr(settings, 'mongodb_uri', '')
@@ -28,9 +28,9 @@ def setup(monkeypatch):
     monkeypatch.setattr(deliverables, 'get_store', lambda: store)
     monkeypatch.setattr(exports, 'get_store', lambda: store)
     monkeypatch.setattr(portability, 'get_store', lambda: store)
-    for module in (outcomes, localization, integrations):
+    for module in (outcomes, localization, integrations, applications):
         monkeypatch.setattr(module, 'get_store', lambda: store)
-    for module in (localization, integrations):
+    for module in (localization, integrations, applications):
         monkeypatch.setattr(module, 'get_gemini', lambda: fake)
     monkeypatch.setattr(deliverables, 'get_gemini', lambda: fake)
     monkeypatch.setattr(main, 'get_store', lambda: store)

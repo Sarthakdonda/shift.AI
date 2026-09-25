@@ -116,7 +116,7 @@ test("landing, discovery, documents, no-AI analysis, reviewed blueprint, and del
     page.getByRole("heading", { name: "Final recommendation" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Business value", exact: true }),
+    page.getByRole("heading", { name: /Success KPIs and business value/ }),
   ).toBeVisible();
   expect(
     await page.evaluate(
@@ -124,8 +124,8 @@ test("landing, discovery, documents, no-AI analysis, reviewed blueprint, and del
     ),
   ).toBeTruthy();
   const download = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Download", exact: true }).click();
-  expect((await download).suggestedFilename()).toContain("blueprint.md");
+  await page.getByRole("button", { name: "Download PDF", exact: true }).click();
+  expect((await download).suggestedFilename()).toContain("blueprint.pdf");
   await page.screenshot({
     path: `test-results/blueprint-${testInfo.project.name}.png`,
     fullPage: true,

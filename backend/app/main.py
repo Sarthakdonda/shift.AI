@@ -13,6 +13,7 @@ from app.api.portability import router as portability_router
 from app.api.outcomes import router as outcome_router
 from app.api.localization import router as localization_router
 from app.api.integrations import router as integration_router
+from app.api.applications import router as application_router
 from app.core.auth import router as auth_router
 from app.core.config import get_settings
 from app.core.errors import AppError
@@ -85,3 +86,4 @@ app.include_router(portability_router)
 app.include_router(outcome_router)
 app.include_router(localization_router)
 app.include_router(integration_router)
+app.include_router(application_router)

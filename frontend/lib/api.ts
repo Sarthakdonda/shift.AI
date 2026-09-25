@@ -40,6 +40,7 @@ export async function api<T>(
     if (response.status >= 500 && ![
       'rate_limited', 'provider_unavailable', 'provider_error', 'gemini_configuration',
       'model_unavailable', 'database_unavailable', 'database_configuration', 'invalid_ai_output',
+      'sandbox_unavailable', 'builder_configuration', 'deployment_configuration', 'deployment_error',
     ].includes(data.code)) {
       throw new ApiError(
         "Your workspace is temporarily unavailable. Please try again shortly.",

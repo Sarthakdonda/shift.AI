@@ -42,6 +42,7 @@ import {
 } from "@/components/analysis/report";
 import { blueprintMarkdown } from "@/components/blueprint/export";
 import { ReviewWorkbench } from "@/components/review/workbench";
+import { WebsiteInput } from "@/components/application/url-input";
 
 export default function Workspace({
   params,
@@ -418,6 +419,7 @@ export default function Workspace({
               </div>
             </div>
           )}
+          {tab === "documents" && <WebsiteInput projectId={id} disabled={busy || ["viewer", "reviewer"].includes(project.access_role || "")} onImported={load}/>}
           {tab === "documents" && (
             <div className="documents-page">
               <div

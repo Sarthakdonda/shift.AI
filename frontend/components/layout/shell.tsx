@@ -38,6 +38,7 @@ const projectNav = [
   ["Red Team", "/red-team", ShieldCheck],
   ["Blueprint", "/blueprint", FileCheck2],
   ["Deliverables", "/deliverables", Files],
+  ["Application", "/application", Workflow],
 ] as const;
 
 const workspaceNav = [

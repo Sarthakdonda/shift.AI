@@ -35,6 +35,19 @@ class Settings(BaseSettings):
     password_reset_minutes: int = 30
     # Without SMTP, show the reset link only to loopback callers so local setup can still finish a reset.
     password_reset_local_link: bool = True
+    # JSON map: project ID -> {service_id, image_repository}. Server controlled only.
+    render_targets_json: str = '{}'
+    render_api_key: str = ''
+    # Preview URLs are loopback-only and intended for the machine running Docker.
+    application_preview_enabled: bool = True
+    # Generated applications use trusted templates; containers never receive platform secrets.
+    builder_enabled: bool = True
+    builder_timeout_seconds: int = 180
+    builder_initial_credits: int = 100
+    builder_build_cost: int = 10
+    vercel_token: str = ''
+    vercel_team_id: str = ''
+    builder_admin_ids: str = ''
 
     @property
     def gemini_keys(self):
