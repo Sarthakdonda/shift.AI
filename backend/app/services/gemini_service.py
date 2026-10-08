@@ -25,6 +25,7 @@ Your output must conform to the supplied schema.'''
 
 
 class GeminiService:
+    system_instruction = POLICY
     def __init__(self):
         self.settings = get_settings()
         self._keys = self.settings.gemini_keys
@@ -68,7 +69,7 @@ class GeminiService:
     def _unavailable(self, model):
         state = self.availability(model)
         if state['status'] == 'rate_limited':
-            return AppError(f"The selected model has reached its available API quota. All configured connections were checked. Retry in about {state['retry_after_seconds']} seconds, or check project limits in Google AI Studio. Your message is saved.", 429, 'rate_limited')
+            return AppError(f"API limit reached: all {state['configured_connections']} configured connection(s) have used their available API quota for {model}. Retry in about {state['retry_after_seconds']} seconds, choose another model in the composer, or check project limits in Google AI Studio. Your message is saved.", 429, 'rate_limited')
         return AppError('The selected model is temporarily unavailable on the configured API connections. Check API access and permissions, or retry shortly. Your message is saved.', 503, 'provider_unavailable')
 
     def _cooldown(self, index, seconds):
@@ -186,24 +187,28 @@ class GeminiService:
         thinking = self._thinking()
         schema_config = ({'response_json_schema': schema.provider_json_schema()}
                          if hasattr(schema, 'provider_json_schema') else {'response_schema': schema})
-        for attempt in range(2):
+        repairs, thinking_retries = 1, 1
+        while True:
             try:
-                result = self._request(lambda client: client.models.generate_content(model=self.settings.gemini_model, contents=prompt, config=types.GenerateContentConfig(system_instruction=POLICY, response_mime_type='application/json', **schema_config, temperature=0.2, max_output_tokens=16000, thinking_config=thinking)), budget)
+                result = self._request(lambda client: client.models.generate_content(model=self.settings.gemini_model, contents=prompt, config=types.GenerateContentConfig(system_instruction=self.system_instruction, response_mime_type='application/json', **schema_config, temperature=0.2, max_output_tokens=16000, thinking_config=thinking)), budget)
                 return schema.model_validate_json(result.text or '')
             except ValidationError as exc:
-                if attempt == 0:
-                    # Error messages/paths only: do not echo untrusted input values.
-                    problems = [{'field': '.'.join(map(str, e['loc'])), 'error': e['msg']} for e in exc.errors(include_input=False, include_url=False)][:15]
-                    prompt += '\nYour previous response failed schema validation. Return a complete valid JSON object with all required fields, supported enums, and numeric bounds. Repair: ' + json.dumps(problems)
-                    continue
-                raise AppError('The AI response could not be validated. Your work is saved; please retry.', 502, 'invalid_ai_output') from None
+                if not repairs:
+                    raise AppError('The AI response could not be validated. Your work is saved; please retry.', 502, 'invalid_ai_output') from None
+                repairs -= 1
+                # Error messages/paths only: do not echo untrusted input values.
+                problems = [{'field': '.'.join(map(str, e['loc'])), 'error': e['msg']} for e in exc.errors(include_input=False, include_url=False)][:15]
+                prompt += '\nYour previous response failed schema validation. Return a complete valid JSON object with all required fields, supported enums, and numeric bounds. Repair: ' + json.dumps(problems)
             except AppError as exc:
+                if exc.code != 'gemini_thinking_unsupported':
+                    raise
                 # A model that rejects the reasoning effort still works without it.
-                if exc.code == 'gemini_thinking_unsupported' and thinking is not None and budget[0] > 0:
-                    logger.warning('Retrying without the thinking option for model %s.', self.settings.gemini_model)
-                    thinking = None
-                    continue
-                raise
+                if not thinking_retries or thinking is None:
+                    raise AppError('Gemini could not complete the request with the selected reasoning effort. Choose a different effort or model, then retry; your project is saved.', 502, 'provider_error') from None
+                thinking_retries -= 1
+                thinking = None
+                budget[0] = max(budget[0], 1)
+                logger.warning('Retrying without the thinking option for model %s.', self.settings.gemini_model)
             except Exception:
                 raise AppError('Gemini could not complete the request. Please retry; your project is saved.', 502, 'provider_error') from None
 

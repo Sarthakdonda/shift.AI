@@ -2,6 +2,32 @@
   color: #222;
   min-width: 0;
 }
+.blueprint-workbench { background: #fff; border: 1px solid #d9e1e8; border-radius: 10px; padding: 24px; margin-bottom: 24px; }
+.blueprint-workbench-heading { display: flex; justify-content: space-between; gap: 18px; align-items: center; flex-wrap: wrap; }
+.blueprint-workbench h2 { font-size: 22px; margin: 5px 0 18px; }
+.blueprint-workbench details { border-top: 1px solid #e3e8ed; padding: 16px 0; }
+.blueprint-workbench summary { cursor: pointer; font-weight: 600; }
+.blueprint-workbench-actions { display:flex; gap:10px; flex-wrap:wrap; padding: 14px 0; }
+.blueprint-workbench button { min-height: 42px; }
+.blueprint-quality { padding: 10px 0; list-style:none; }
+.blueprint-quality li { display:flex; gap:10px; margin:12px 0; }
+.blueprint-quality p { margin-top:4px; font-size:13px; color:#536171; }
+.blueprint-editor { display:grid; gap:16px; padding-top:18px; }
+.blueprint-editor label { display:grid; gap:7px; font-size:14px; font-weight:550; }
+.blueprint-editor input,.blueprint-editor select,.blueprint-editor textarea { width:100%; min-width:0; border:1px solid #cad5df; border-radius:5px; padding:10px; color:#253444; background:white; font-weight:400; }
+.blueprint-approval { display:grid; gap:14px; padding:16px 0; }
+.blueprint-approval label { display:flex; align-items:flex-start; gap:10px; }
+.blueprint-approval input[type="checkbox"] { width:16px; height:16px; flex:0 0 16px; margin-top:3px; }
+.blueprint-diagram { margin:24px 0; max-width:100%; }
+.blueprint-diagram-scroll { overflow:auto; border:1px solid #dde5ec; border-radius:6px; background:#fff; max-height:1000px; }
+.blueprint-diagram svg { display:block; width:100%; }
+.blueprint-node-content { font: 14px/22px Arial,sans-serif; color:#233c50; overflow-wrap:anywhere; white-space:pre-wrap; }
+.blueprint-node-content strong { display:block; border-bottom:1px solid #d8e1e9; padding-bottom:6px; margin-bottom:5px; }
+.blueprint-node-content small { display:block; color:#637b8d; margin-top:4px; }
+.blueprint-relationships { list-style:none; padding:0; font-size:13px; }
+.blueprint-relationships li { margin:8px 0; }
+@media (max-width:640px) { .blueprint-workbench { padding:16px; } .blueprint-workbench-actions > * { max-width:100%; } }
+@media print { .blueprint-diagram-scroll { overflow:visible; max-height:none; } .blueprint-diagram svg { min-width:0 !important; } }
 .report-contents {
   padding: 28px;
   background: white;

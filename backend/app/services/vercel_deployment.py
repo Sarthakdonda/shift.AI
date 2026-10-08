@@ -33,9 +33,12 @@ def deploy_job(store,pid,actor,deployment_id):
         upstream=render['live_url'].rstrip('/')
         if not re.fullmatch(r'https://[a-zA-Z0-9-]+\.onrender\.com',upstream):raise AppError('Invalid verified backend origin.',409)
         proxy=(Path(__file__).resolve().parents[1]/'templates'/'vercel_proxy.mjs').read_text('utf-8').replace('__UPSTREAM__',json.dumps(upstream))
-        files=[{'file':name,'data':build['files']['public/'+name]} for name in ('index.html','app.js','style.css')]
+        files=[{'file':name.removeprefix('public/'),'data':data} for name,data in build['files'].items() if name.startswith('public/')]
+        pages=build['spec'].get('public_pages', [])
+        page_rewrites=[{'source':'/workspace','destination':'/index.html'},{'source':'/site/:slug','destination':'/site/:slug.html'}]
+        if pages:page_rewrites.insert(0,{'source':'/','destination':'/site/'+pages[0]['slug']+'.html'})
         files.extend([{'file':'release.json','data':build['files']['release.json']},{'file':'api/proxy.mjs','data':proxy},
-            {'file':'vercel.json','data':json.dumps({'rewrites':[{'source':'/health','destination':'/api/proxy?route=health'},{'source':'/api/:route*','destination':'/api/proxy?route=:route*'}],
+            {'file':'vercel.json','data':json.dumps({'rewrites':[{'source':'/health','destination':'/api/proxy?route=health'},{'source':'/api/:route*','destination':'/api/proxy?route=:route*'},*page_rewrites],
             'headers':[{'source':'/(.*)','headers':[{'key':'Cache-Control','value':'no-store'},{'key':'X-Content-Type-Options','value':'nosniff'},{'key':'Content-Security-Policy','value':"default-src 'self'; script-src 'self'; style-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"}]}]})}])
         remote=api('POST','/v13/deployments',{'name':'shift-'+pid,'files':files,'target':'production','projectSettings':{'framework':None}})
         candidate='https://'+remote['url']

@@ -21,6 +21,7 @@ async function start() {
   $('navigation').replaceChildren();
   for (const entity of spec.entities) { const button = el('button', entity.label, $('navigation')); button.onclick = () => { selected = entity; offset = 0; show().catch(notice); }; }
   if (spec.user.role === 'admin') { const button = el('button', 'Team accounts', $('navigation')); button.onclick = () => users().catch(notice); }
+  if (spec.entities.some(entity => entity.integrations?.length)) { const button = el('button', 'Integration deliveries', $('navigation')); button.onclick = async () => { try { const rows = await request('/api/deliveries'); $('module').replaceChildren(); el('h2', 'Integration deliveries', $('module')); for (const row of rows) el('p', row.action + ' · ' + row.status + (row.error ? ' · ' + row.error : ''), $('module')); } catch (error) { notice(error); } }; }
   selected = spec.entities[0]; if (selected) await show();
 }
 async function show(query = '') {
@@ -46,6 +47,7 @@ async function show(query = '') {
         const cell = el('td', undefined, tr); const edit = el('button', 'Edit', cell); edit.onclick = () => editor(entity, row).catch(notice);
         const remove = el('button', 'Delete', cell); remove.onclick = () => { if (confirm('Delete this record? This cannot be undone.')) task(remove, async () => { await request('/api/records/' + entity.name + '/' + row.id, undefined, 'DELETE'); await show(query); }); };
         entity.transitions.forEach((transition, index) => { if (row[transition.field] === transition.from_value && (spec.user.role === 'admin' || transition.roles.includes(spec.user.role))) { const action = el('button', transition.label, cell); action.onclick = () => task(action, async () => { await request('/api/records/' + entity.name + '/' + row.id + '/transition', { transition: index }); await show(query); }); } });
+        for (const integration of entity.integrations || []) { if (spec.user.role === 'admin' || integration.roles.includes(spec.user.role)) { const button = el('button', integration.label, cell); let requestId; button.onclick = () => { if (confirm(integration.description + '\nSend the listed record fields to this integration?')) task(button, async () => { requestId ||= crypto.randomUUID(); await request('/api/records/' + entity.name + '/' + row.id + '/integrations/' + integration.name, { request_id: requestId }); button.textContent = 'Queued'; }); }; } }
       }
     }
   }
@@ -59,6 +61,7 @@ async function editor(entity, row) {
   const errorBox = el('p', '', form); errorBox.setAttribute('role', 'alert');
   try {
     for (const field of entity.fields) {
+      if (entity.logic?.outputs.includes(field.name)) continue;
       const label = el('label', field.label, form);
       const input = el(field.kind === 'select' || field.kind === 'reference' ? 'select' : 'input', undefined, label);
       input.setAttribute('aria-label', field.label);
@@ -79,7 +82,7 @@ async function editor(entity, row) {
     const save = el('button', 'Save record', actions); save.type = 'submit';
     const cancel = el('button', 'Cancel', actions); cancel.type = 'button'; cancel.onclick = () => dialog.close();
     form.onsubmit = async event => { event.preventDefault(); save.disabled = true; try {
-      const values = {}; for (const field of entity.fields) { const input = inputs[field.name]; values[field.name] = field.kind === 'boolean' ? input.checked : field.kind === 'number' && input.value !== '' ? Number(input.value) : input.value; }
+      const values = {}; for (const field of entity.fields) { const input = inputs[field.name]; if (!input) continue; values[field.name] = field.kind === 'boolean' ? input.checked : field.kind === 'number' && input.value !== '' ? Number(input.value) : input.value; }
       await request('/api/records/' + entity.name + (row ? '/' + row.id : ''), values); dialog.close(); await show();
     } catch (error) { errorBox.textContent = error.message; } finally { save.disabled = false; } };
     dialog.onclose = () => dialog.remove(); dialog.showModal();

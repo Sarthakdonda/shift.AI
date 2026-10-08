@@ -2,6 +2,13 @@
 .env.*
 !.env.example
 !.env.local.example
+# Signing and service-account material must never be committed.
+*.pem
+*.p12
+*.pfx
+*.keystore
+*.jks
+*.mobileprovision
 **/.venv/
 **/__pycache__/
 **/.pytest_cache/

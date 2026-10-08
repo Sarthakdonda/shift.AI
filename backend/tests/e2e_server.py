@@ -6,15 +6,19 @@ from app.repositories.store import Store
 from app.api import routes
 from app import main
 from app.core import auth
-from app.api import workspaces, deliverables, exports, portability, outcomes, localization, integrations, applications
+from app.services import groq_service
+from app.api import workspaces, deliverables, exports, portability, outcomes, localization, integrations, applications, subscriptions, security, enterprise_sso
 from tests.fakes import FakeGemini
 
 settings = get_settings()
+settings.builder_job_mode = 'background'
 # Health should report the in-memory store as connected. All stores below are
 # replaced with mongomock; this loopback discard port cannot reach a real DB.
 settings.mongodb_uri = 'mongodb://127.0.0.1:1/browser_test_shift_ai?serverSelectionTimeoutMS=1'
 settings.gemini_api_key = 'browser-tests-only'
 settings.gemini_api_keys = ''
+settings.groq_api_key = ''
+settings.groq_api_keys = ''
 settings.google_client_id = ''
 settings.allow_local_access = True
 store = Store(mongomock.MongoClient().browser_test_shift_ai)
@@ -28,6 +32,8 @@ class BrowserGemini(FakeGemini):
 fake = BrowserGemini()
 routes.get_store = lambda: store
 routes.get_gemini = lambda: fake
+applications.get_builder_ai = lambda: fake
+groq_service.get_builder_ai = lambda: fake
 main.get_store = lambda: store
 auth.get_store = lambda: store
 workspaces.get_store = lambda: store
@@ -35,7 +41,7 @@ deliverables.get_store = lambda: store
 exports.get_store = lambda: store
 portability.get_store = lambda: store
 deliverables.get_gemini = lambda: fake
-for module in (outcomes, localization, integrations, applications):
+for module in (outcomes, localization, integrations, applications, subscriptions, security, enterprise_sso):
     module.get_store = lambda: store
 for module in (localization, integrations, applications):
     module.get_gemini = lambda: fake

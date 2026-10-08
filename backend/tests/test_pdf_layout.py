@@ -29,8 +29,8 @@ def test_er_is_vector_boxes_and_connectors_not_only_a_text_listing():
     page = PdfReader(io.BytesIO(out.getvalue())).pages[0]
     text = page.extract_text()
     assert 'Invoice' in text and 'AuditEvent' in text
-    assert 'id PK' in text and 'invoice_id FK' in text and 'R1' in text
-    assert 'Context: Invoice importer' in text
+    assert 'id uuid PK' in text and 'invoice_id uuid FK' in text and 'R1' in text
+    assert 'supplier_ref text' in text and 'created_at timestamp' in text
     operations = [op for _, op in page.get_contents().operations]
     assert operations.count(b're') == 2  # Two bordered entity boxes.
     assert operations.count(b'l') >= 8  # Connector, dividers and cardinality markers.
@@ -84,7 +84,8 @@ def test_cleanup_preserves_distinct_content_and_never_mutates_saved_report():
     assert cleaned['sections'][0]['items'] == ['Unique detail', 'CaseSensitiveID', 'casesensitiveid']
     assert cleaned['sections'][0]['tables'][0]['rows'] == [['1', 'Preserve this']]
     assert len(cleaned['sections'][0]['tables']) == 1
-    assert sum(len(s['diagrams']) for s in cleaned['sections']) == sum(len(s['diagrams']) for s in original['sections']) - 2
+    # Deduplicate within each chapter; never remove the ER from its owning chapter.
+    assert sum(len(s['diagrams']) for s in cleaned['sections']) == sum(len(s['diagrams']) for s in original['sections']) - 1
 
 
 def test_minimal_pdf_has_numbered_contents_and_one_code_specification():
@@ -95,13 +96,13 @@ def test_minimal_pdf_has_numbered_contents_and_one_code_specification():
     assert '1. Executive summary' in text
     assert 'Technical appendix: implementation specifications' in text
     assert 'AuditEvent.invoice_id -> Invoice.id' in text
-    assert text.count('CREATE TABLE Invoice') == 1
+    assert text.count('CREATE TABLE "Invoice"') == 1
     assert 'component_refs' not in text and 'No outgoing connection' not in text
-    # The PDF draws only grayscale colors, including diagram fills and table headers.
-    for page in pdf.pages:
-        for operands, operator in page.get_contents().operations:
-            if operator in (b'rg', b'RG'):
-                assert len(set(operands)) == 1
+    # Restrained blue-gray headings and boxed artifacts remain real vector content.
+    colors = [operands for page in pdf.pages for operands, operator in page.get_contents().operations
+              if operator in (b'rg', b'RG')]
+    assert any(len(set(color)) > 1 for color in colors)
+    assert all(0 <= float(channel) <= 1 for color in colors for channel in color)
 
 
 @pytest.mark.parametrize('change', ['missing_er', 'missing_entity', 'not_applicable', 'unlabelled_relationship'])

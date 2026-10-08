@@ -5,6 +5,7 @@ import textwrap
 import zipfile
 from xml.etree.ElementTree import Element, SubElement, tostring
 from docx import Document
+from docx.shared import Inches as WordInches
 from openpyxl import Workbook
 from pptx import Presentation
 from pptx.util import Inches, Pt
@@ -91,6 +92,10 @@ def report_docx(title, report):
             for cell, value in zip(grid.rows[0].cells, t['columns']): cell.text = value
             for row in t['rows']:
                 for cell, value in zip(grid.add_row().cells, row): cell.text = value
+        from app.services.office_diagrams import section_figures, figure_png
+        for caption, figure in section_figures(section):
+            doc.add_heading(caption, 2)
+            doc.add_picture(figure_png(figure), width=WordInches(6))
         for depth, text in visual_lines(section):
             if depth == 1: doc.add_heading(text, 2)
             else: doc.add_paragraph(text)
@@ -143,7 +148,10 @@ def export(title, content, fmt):
         return blueprint_pdf(title, content)
     if fmt == 'json': return json.dumps(content, ensure_ascii=False, indent=2).encode()
     report = content.get('final_report')
-    if report and fmt == 'docx': return report_docx(title, report)
+    if report and fmt == 'docx':
+        if content.get('export_notice'):
+            report = {**report, 'title': report['title'] + ' — historical version'}
+        return report_docx(title, report)
     sections = report['sections'] if report else content.get('sections', [])
     diagrams = [d for s in sections for d in s.get('diagrams', [])] if report else content.get('diagrams', [])
     assets = [a for s in sections for a in s.get('code_assets', [])] if report else content.get('code_assets', [])
@@ -203,5 +211,16 @@ def export(title, content, fmt):
             for i, line in enumerate(chunks[start:start+13]):
                 paragraph = frame.paragraphs[0] if i == 0 else frame.add_paragraph()
                 paragraph.text = line; paragraph.font.size = Pt(17)
+        from app.services.office_diagrams import section_figures, figure_png
+        for section in (sections if report else [content]):
+            for caption, figure in section_figures(section):
+                slide = deck.slides.add_slide(deck.slide_layouts[6])
+                heading = slide.shapes.add_textbox(Inches(.6), Inches(.25), Inches(12), Inches(.8)).text_frame
+                heading.text = caption
+                heading.paragraphs[0].font.size = Pt(22)
+                ratio = (figure.width+16)/(figure.height+16)
+                picture_height = min(5.9, 12/ratio)
+                picture_width = picture_height*ratio
+                slide.shapes.add_picture(figure_png(figure), Inches((13.33-picture_width)/2), Inches(1.1), width=Inches(picture_width), height=Inches(picture_height))
         deck.save(out)
     return out.getvalue()

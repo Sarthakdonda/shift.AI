@@ -1,4 +1,5 @@
 import logging
+import threading
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,6 +15,12 @@ from app.api.outcomes import router as outcome_router
 from app.api.localization import router as localization_router
 from app.api.integrations import router as integration_router
 from app.api.applications import router as application_router
+from app.api.application_portable import router as portable_router
+from app.api.deployments import router as one_click_router
+from app.portable_preview import PortablePreviewMiddleware
+from app.api.subscriptions import router as subscription_router
+from app.api.security import router as security_router
+from app.api.enterprise_sso import router as sso_router
 from app.core.auth import router as auth_router
 from app.core.config import get_settings
 from app.core.errors import AppError
@@ -28,7 +35,16 @@ async def lifespan(app):
         await run_in_threadpool(lambda: get_store().indexes())
     except Exception as exc:
         logger.warning('Database initialization unavailable (%s). Check backend/.env and Atlas network access.', type(exc).__name__)
+    stop = threading.Event()
+    worker = None
+    if get_settings().builder_job_mode == 'durable' and get_settings().worker_embedded:
+        from app.services.job_queue import run_worker
+        worker = threading.Thread(target=run_worker, args=(get_store, stop), daemon=True)
+        worker.start()
     yield
+    stop.set()
+    if worker:
+        worker.join(timeout=3)
 
 
 app = FastAPI(title='shift.AI API', version='1.0.0', lifespan=lifespan)
@@ -40,7 +56,7 @@ class WorkspaceCORSMiddleware(CORSMiddleware):
         return origin in get_settings().origins
 
 
-app.add_middleware(WorkspaceCORSMiddleware, allow_credentials=True, allow_methods=['GET', 'POST', 'DELETE', 'OPTIONS'], allow_headers=['Content-Type'])
+app.add_middleware(WorkspaceCORSMiddleware, allow_credentials=True, allow_methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], allow_headers=['Content-Type'])
 
 
 @app.middleware('http')
@@ -87,3 +103,9 @@ app.include_router(outcome_router)
 app.include_router(localization_router)
 app.include_router(integration_router)
 app.include_router(application_router)
+app.include_router(portable_router)
+app.include_router(one_click_router)
+app.include_router(subscription_router)
+app.include_router(security_router)
+app.include_router(sso_router)
+app.add_middleware(PortablePreviewMiddleware)

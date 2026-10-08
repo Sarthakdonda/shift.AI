@@ -9,7 +9,7 @@ from pptx import Presentation
 from openpyxl import load_workbook
 from app.core.errors import AppError
 
-SUPPORTED = {'.pdf', '.docx', '.pptx', '.txt', '.csv', '.xlsx'}
+SUPPORTED = {'.pdf', '.doc', '.docx', '.ppt', '.pptx', '.txt', '.csv', '.xlsx', '.png', '.jpg', '.jpeg', '.tif', '.tiff'}
 MAX_CHARS = 500_000
 
 
@@ -17,13 +17,18 @@ def validate_file(filename, data, max_mb=15):
     name = PurePath(filename.replace('\\', '/')).name[:180]
     ext = PurePath(name).suffix.lower()
     if ext not in SUPPORTED:
-        raise AppError('Choose a PDF, DOCX, PPTX, TXT, CSV, or XLSX file.', 415)
+        raise AppError('Choose a PDF, DOC/DOCX, PPT/PPTX, TXT, CSV, XLSX, PNG, JPEG or TIFF file.', 415)
     if not data:
         raise AppError('This file is empty.')
     if len(data) > max_mb * 1024 * 1024:
         raise AppError(f'Files must be {max_mb} MB or smaller.', 413)
     if ext == '.pdf' and not data.startswith(b'%PDF-'):
         raise AppError('The file contents do not match a valid PDF.')
+    signatures = {'.doc': (b'\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1',), '.ppt': (b'\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1',),
+        '.png': (b'\x89PNG\r\n\x1a\n',), '.jpg': (b'\xff\xd8\xff',), '.jpeg': (b'\xff\xd8\xff',),
+        '.tif': (b'II\x2a\x00', b'MM\x00\x2a'), '.tiff': (b'II\x2a\x00', b'MM\x00\x2a')}
+    if ext in signatures and not data.startswith(signatures[ext]):
+        raise AppError('The file contents do not match its extension.')
     if ext in ('.docx', '.xlsx', '.pptx'):
         if not zipfile.is_zipfile(io.BytesIO(data)):
             raise AppError('The file contents do not match an Office document.')
@@ -45,6 +50,12 @@ def extract(data: bytes, ext: str):
             if len(reader.pages) > 300:
                 raise AppError('Please upload a PDF with 300 pages or fewer.')
             pages = [(n + 1, p.extract_text() or '') for n, p in enumerate(reader.pages)]
+            if any(not text.strip() for _, text in pages):
+                from app.services.document_conversion import convert
+                pages = convert(data, ext)
+        elif ext in ('.doc', '.ppt', '.png', '.jpg', '.jpeg', '.tif', '.tiff'):
+            from app.services.document_conversion import convert
+            pages = convert(data, ext)
         elif ext == '.docx':
             doc = Document(stream)
             text = '\n'.join(p.text for p in doc.paragraphs)
@@ -90,7 +101,7 @@ def extract(data: bytes, ext: str):
     if sum(len(t) for _, t in pages) > MAX_CHARS:
         raise AppError('This document contains too much text. Split it into smaller files.')
     if not any(t.strip() for _, t in pages):
-        raise AppError('No readable text found. Scanned PDFs need OCR before upload.')
+        raise AppError('No readable text was found, including after available OCR. Try a clearer scan or another OCR language.')
     chunks = []
     for page, text in pages:
         text = re.sub(r'[ \t]+', ' ', text).strip()

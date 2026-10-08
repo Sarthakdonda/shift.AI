@@ -28,8 +28,9 @@ def unique(values):
 def prepare_report(report):
     """Remove exact repetition, never summarize or discard distinct requirements."""
     result = copy.deepcopy(report)
-    seen_artifacts = set()
     for section in result['sections']:
+        # A diagram belongs to its chapter even if another chapter references it.
+        seen_artifacts = set()
         paragraphs = unique(re.split(r'\n\s*\n', section['narrative']))
         section['narrative'] = '\n\n'.join(paragraphs)
         narrative_keys = {fingerprint(p) for p in paragraphs}

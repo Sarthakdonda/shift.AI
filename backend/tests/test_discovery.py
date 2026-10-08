@@ -81,13 +81,28 @@ def test_newly_extracted_facts_also_suppress_redundant_questions():
 
 @pytest.mark.parametrize('q', [question('organization.size', 'How large is the team?'),
                                question('new.alias', 'Where does the current process slow down?')])
-def test_topic_or_text_duplicates_fail_gracefully_after_bounded_repair(q):
+def test_topic_or_text_duplicates_are_repaired_into_the_open_question(q):
+    """A model that keeps repeating itself must never end a saved answer in an error."""
     memory = ProjectContext(stated_request='Test', questions_asked=[question('organization.size')])
     ai = Mock()
     ai.generate_structured.return_value = response(q)
-    with pytest.raises(AppError, match='Your answer is saved'):
-        DiscoveryService(ai).run(context(memory=memory.model_dump()), [message()])
+    engine = DiscoveryService(ai)
+    result, saved = engine.run(context(memory=memory.model_dump()), [message()])
     assert ai.generate_structured.call_count == 2
+    assert result.next_question == 'Where does the current process slow down?'
+    assert result.enough_information is False and engine.notice
+    assert len(saved.questions_asked) == 1 and not saved.ready_for_analysis
+
+
+def test_repair_downgrades_readiness_without_verified_evidence():
+    ai = Mock()
+    ready = response(ready=True, facts=[fact('m1')])
+    ready.readiness_evidence[0].quote = 'A quote nobody actually wrote.'
+    ai.generate_structured.return_value = ready
+    engine = DiscoveryService(ai)
+    result, saved = engine.run(context(), [message()])
+    assert result.enough_information is False and saved.ready_for_analysis is False
+    assert result.next_questions and saved.known_facts[0].fact == '50 employees'
 
 
 def test_memory_survives_bounded_chat_history_and_merges_corrections():
@@ -127,11 +142,13 @@ def test_readiness_has_no_question_count_gate(count, ready):
     assert saved.information_sufficiency == (85 if ready else 35)
 
 
-def test_invalid_citation_rejected_without_promoting_assumptions():
+def test_invalid_citation_is_dropped_without_promoting_assumptions():
     ai = Mock()
     ai.generate_structured.return_value = response(facts=[fact('assistant-message')])
-    with pytest.raises(AppError):
-        DiscoveryService(ai).run(context(), [message(), {'id': 'assistant-message', 'role': 'assistant', 'content': 'Question?'}])
+    messages = [message(), {'id': 'assistant-message', 'role': 'assistant', 'content': 'Question?'}]
+    result, saved = DiscoveryService(ai).run(context(), messages)
+    assert saved.known_facts == [] and list(result.collected_information) == []
+    assert ai.generate_structured.call_count == 2 and result.next_questions
 
 
 def test_malformed_output_and_failure_preserve_answer_and_retry(setup, project, monkeypatch):
@@ -174,6 +191,32 @@ def test_document_deletion_removes_context_evidence_immediately(setup, project):
     assert memory['document_findings'] == []
 
 
+def test_repeated_question_keeps_the_conversation_open(setup, project, monkeypatch):
+    """A stubborn repeat must return a usable question, never a 502 the user sees as an outage."""
+    client, store, ai, _ = setup
+    asked = question('charger.hardware', 'Which charger models and OCPP versions do you use?')
+    monkeypatch.setattr(ai, 'generate_structured', Mock(return_value=response(asked)))
+    assert client.post(f'/api/projects/{project}/chat', json={'content': 'We run 40 chargers across 12 sites.'}).status_code == 200
+    repeat = client.post(f'/api/projects/{project}/chat', json={'content': 'i need all this'})
+    assert repeat.status_code == 200
+    assert repeat.json()['needs_user_input'] and asked['question'] in repeat.json()['message']
+    saved = store.project(project, 'local-workspace')
+    assert saved['status'] == 'DISCOVERY' and not saved['error'] and not saved['busy']
+    assert any(m.get('question_notice') for m in store.related('messages', project))
+    assert len(saved['project_context']['questions_asked']) == 1
+
+
+def test_exhausted_api_limit_reports_a_limit_error_the_user_can_read(setup, project, monkeypatch):
+    client, store, ai, _ = setup
+    limit = AppError('API limit reached: all 2 configured connection(s) have used their available API quota.', 429, 'rate_limited')
+    monkeypatch.setattr(ai, 'generate_structured', Mock(side_effect=limit))
+    failed = client.post(f'/api/projects/{project}/chat', json={'content': 'Records are copied every morning.'})
+    assert failed.status_code == 429
+    assert failed.json()['code'] == 'rate_limited'
+    assert 'API limit reached' in failed.json()['detail']
+    assert not store.project(project, 'local-workspace')['busy']
+
+
 def test_analysis_failure_keeps_discovery_retryable(setup, project, monkeypatch):
     client, store, ai, _ = setup
     original = ai.generate_structured
@@ -187,4 +230,4 @@ def test_analysis_failure_keeps_discovery_retryable(setup, project, monkeypatch)
     assert p['status'] == 'ERROR' and p['project_context']['ready_for_analysis'] and not p['busy']
     monkeypatch.setattr(ai, 'generate_structured', original)
     assert client.post(f'/api/projects/{project}/analysis/run').status_code == 202
-    assert store.project(project, 'local-workspace')['status'] == 'BLUEPRINT_READY'
+    assert store.project(project, 'local-workspace')['status'] == 'BLUEPRINT_DRAFT'

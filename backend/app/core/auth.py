@@ -50,6 +50,11 @@ def user(request: Request):
                 return public_account(record)
             if str(account.get('id', '')).startswith('google:') and s.google_client_id:
                 return account
+            if str(account.get('id', '')).startswith('oidc:') and s.oidc_client_id:
+                record = get_store().db.external_accounts.find_one({'_id': account['id'], 'disabled': {'$ne': True}})
+                if not record or record.get('session_version', 0) != account.get('session_version', 0):
+                    raise BadSignature('Revoked session')
+                return account
             raise BadSignature('Unknown session')
         except (BadSignature, SignatureExpired):
             raise AppError('Your session has expired. Please sign in again.', 401) from None
@@ -82,6 +87,7 @@ class EmailAddress(BaseModel):
 
 class EmailLogin(EmailAddress):
     password: str = Field(min_length=1, max_length=128)
+    code: str = Field(default='', max_length=64)
 
 
 class EmailSignup(EmailLogin):
@@ -131,6 +137,9 @@ def email_login(body: EmailLogin, request: Request, response: Response):
     encoded = record['password_hash'] if record else 'pbkdf2_sha256$600000$' + '00' * 16 + '$' + '00' * 32
     if not verify_password(body.password, encoded) or not record or record.get('disabled'):
         raise AppError('Email or password is incorrect.', 401)
+    from app.services.account_security import verify, audit
+    verify(get_store().db, record, body.code)
+    audit(get_store().db, 'email:' + str(record['_id']), 'login.password')
     account = public_account(record)
     set_session(response, account)
     return account

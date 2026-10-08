@@ -6,7 +6,7 @@ export default {
     if (!['GET', 'POST', 'DELETE'].includes(request.method)) return Response.json({error:'Method not allowed'}, {status:405});
     if (request.method !== 'GET' && request.headers.get('origin') !== url.origin) return Response.json({error:'Origin rejected'}, {status:403});
     const part = url.searchParams.get('route') || url.pathname.replace(/^\/api\//, '');
-    if (!/^(health|login|logout|spec|users|records\/[a-z][a-z0-9_]*(\/[a-zA-Z0-9_-]+)?(\/transition)?)$/.test(part)) return Response.json({error:'Not found'}, {status:404});
+    if (!/^(health|login|logout|spec|users|deliveries|records\/[a-z][a-z0-9_]*(\/[a-zA-Z0-9_-]+)?(\/transition|\/integrations\/[a-z][a-z0-9_]*)?)$/.test(part)) return Response.json({error:'Not found'}, {status:404});
     const target = new URL(part === 'health' ? '/health' : '/api/' + part, upstream);
     for (const key of ['q','offset']) if(url.searchParams.has(key)) target.searchParams.set(key,url.searchParams.get(key));
     const headers = {'Content-Type':'application/json', Origin:upstream};

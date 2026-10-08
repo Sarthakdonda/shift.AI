@@ -1,0 +1,10 @@
+{
+  "name": "shift-application-build-tools",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Trusted worker tools; never loaded into generated browser apps",
+  "dependencies": {
+    "@tauri-apps/cli": "2.11.5",
+    "playwright": "1.63.0"
+  }
+}

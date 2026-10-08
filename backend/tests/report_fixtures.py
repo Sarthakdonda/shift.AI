@@ -145,7 +145,7 @@ components:
     chapters = []
     for key in sorted(schema.required_keys):
         title, narrative, rows = COPY[key]
-        kinds = {'hld':['architecture'], 'future_process':['swimlane','decision_tree'], 'journeys':['workflow'], 'data_model':['er'], 'integrations':['data_flow']}.get(key, [])
+        kinds = {'hld':['architecture'], 'deployment':['architecture'], 'future_process':['swimlane','decision_tree'], 'journeys':['workflow'], 'data_model':['er'], 'integrations':['data_flow']}.get(key, [])
         diagrams = []
         for kind in kinds:
             diagram = {**rich['diagrams'][0], 'kind':kind, 'title':title}
@@ -161,7 +161,27 @@ components:
             diagrams=diagrams,screens=rich['screens'] if key=='wireframes' else [],code_assets=rich['code_assets'][:1] if key=='database' else rich['code_assets'][1:] if key=='apis' else [],
             component_refs=['Invoice importer'],entity_refs=['Invoice','AuditEvent'] if key in ['database','data_model','apis'] else [],integration_refs=['Accounting CSV'] if key=='integrations' else []))
     result = dict(selected_option='balanced',chapters=chapters)
-    if schema_name=='ArchitectureReport': result.update(component_names=['Invoice importer'],entity_names=['Invoice','AuditEvent'],integration_names=['Accounting CSV'])
+    if schema_name=='ArchitectureReport':
+        result.update(component_names=['Invoice importer'],entity_names=['Invoice','AuditEvent'],integration_names=['Accounting CSV'], requirements=[
+            dict(id='REQ-1',objective='Reduce duplicate invoice entry',description='Reject duplicate invoice references.',kind='functional',
+                 user_story='As an operations reviewer I want invalid imports rejected before export.',acceptance=['A repeated supplier/reference is rejected without creating another invoice.'],
+                 modules=['Invoice import'],components=['Invoice importer'],entities=['Invoice','AuditEvent'],api_operations=['POST /imports'],
+                 test_cases=['TEST-1: import the same supplier/reference twice; verify one invoice and a rejection reason.'],
+                 evidence=['Synthetic user request: reduce duplicate invoice entry.'],assumptions=['Accounting format requires validation.']),
+            dict(id='REQ-2',objective='Protect invoice access',description='Require the operations role when listing invoice records.',kind='non_functional',
+                 user_story='As an owner I want invoice data restricted to authorized operations staff.',acceptance=['An unauthorized caller receives 403 and no invoice data.'],
+                 modules=['Invoice access'],components=['Invoice importer'],entities=['Invoice'],api_operations=['GET /invoices'],
+                 test_cases=['TEST-2: request invoices without the operations role; expect 403.'],evidence=['Proposed access-control requirement; owner confirmation needed.'],assumptions=['Confirm identity provider.'])])
+    if schema_name=='DataReport':
+        def column(name, kind='text', pk=False):
+            return dict(name=name,data_type=kind,nullable=False,primary_key=pk,unique=False,description='Proposed ' + name + ' field.')
+        result['database_design'] = dict(dialect='PostgreSQL',entities=[
+            dict(name='Invoice',description='Validated invoice records.',columns=[column('id','uuid',True),column('supplier_ref'),column('invoice_ref'),column('amount','numeric'),column('status'),column('created_at','timestamp')],
+                 indexes=[dict(columns=['supplier_ref','invoice_ref'],unique=True,reason='Prevent duplicate source invoices.')],retention='Requires owner validation.'),
+            dict(name='AuditEvent',description='Invoice review history.',columns=[column('id','uuid',True),column('invoice_id','uuid'),column('actor_id'),column('event'),column('created_at','timestamp')],
+                 indexes=[dict(columns=['invoice_id','created_at'],unique=False,reason='Read invoice history in time order.')],retention='Requires owner validation.')],
+            relationships=[dict(source_entity='AuditEvent',source_columns=['invoice_id'],target_entity='Invoice',target_columns=['id'],on_delete='RESTRICT',description='Invoice has review events')],
+            normalization='Separate invoice facts from repeating audit events.',migration='Add tables without deleting data; reconcile a sample and test backup restoration.')
     if schema_name=='PlanningReport': result.update(estimates=[estimate('Implementation effort','person-days',10,20),estimate('Elapsed duration','weeks',3,6),estimate('Development/setup cost','Currency to confirm'),estimate('Recurring hosting/support','Currency/month to confirm')],
         risks=[dict(risk='Accounting import format unavailable',severity='high',likelihood='unknown',impact='Blocks validated export.',mitigation='Confirm a representative CSV import before implementing the handoff.',owner='Operations owner',validation_action='Reconcile a sample with accounting.',residual_concern='Vendor changes may require remapping.')],
         unresolved_items=['Confirm accounting CSV format, retention period, baseline volume and rates.'],glossary=['Idempotency: repeating a request does not duplicate its effect.'])

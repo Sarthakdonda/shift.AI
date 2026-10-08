@@ -11,12 +11,18 @@ def setup(monkeypatch):
     from app import main
     from app.api import routes
     from app.core import auth
-    from app.api import workspaces, deliverables, exports, portability, outcomes, localization, integrations, applications
+    from app.services import groq_service
+    from app.api import workspaces, deliverables, exports, portability, outcomes, localization, integrations, applications, subscriptions, security, enterprise_sso
     settings = get_settings()
+    monkeypatch.setattr(settings, 'razorpay_key_id', '')
+    monkeypatch.setattr(settings, 'razorpay_key_secret', '')
+    monkeypatch.setattr(settings, 'builder_job_mode', 'background')
     monkeypatch.setattr(settings, 'google_client_id', '')
     monkeypatch.setattr(settings, 'mongodb_uri', '')
     monkeypatch.setattr(settings, 'gemini_api_key', '')
     monkeypatch.setattr(settings, 'gemini_api_keys', '')
+    monkeypatch.setattr(settings, 'groq_api_key', '')
+    monkeypatch.setattr(settings, 'groq_api_keys', '')
     monkeypatch.setattr(settings, 'allow_local_access', True)
     monkeypatch.setattr(settings, 'session_secret', 'test-secret-that-is-at-least-thirty-two-characters')
     monkeypatch.setattr(settings, 'vector_search_enabled', False)
@@ -28,11 +34,13 @@ def setup(monkeypatch):
     monkeypatch.setattr(deliverables, 'get_store', lambda: store)
     monkeypatch.setattr(exports, 'get_store', lambda: store)
     monkeypatch.setattr(portability, 'get_store', lambda: store)
-    for module in (outcomes, localization, integrations, applications):
+    for module in (outcomes, localization, integrations, applications, subscriptions, security, enterprise_sso):
         monkeypatch.setattr(module, 'get_store', lambda: store)
     for module in (localization, integrations, applications):
         monkeypatch.setattr(module, 'get_gemini', lambda: fake)
     monkeypatch.setattr(deliverables, 'get_gemini', lambda: fake)
+    monkeypatch.setattr(applications, 'get_builder_ai', lambda: fake)
+    monkeypatch.setattr(groq_service, 'get_builder_ai', lambda: fake)
     monkeypatch.setattr(main, 'get_store', lambda: store)
     monkeypatch.setattr(routes, 'get_gemini', lambda: fake)
     with TestClient(main.app) as client:

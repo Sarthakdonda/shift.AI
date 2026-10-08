@@ -11,6 +11,10 @@ from app.services.model_catalog import catalog
 from app.services.document_service import validate_file
 from app.services.project_service import ProjectService
 from app.services.generation_service import Generation
+from app.services import blueprint_service
+from app.models.final_report import PART_SCHEMAS
+from pydantic import BaseModel, Field
+from typing import Literal
 
 router = APIRouter(prefix='/api', tags=['Workspace'])
 
@@ -149,7 +153,72 @@ def analysis(pid: str, account=Depends(user)):
 def blueprint(pid: str, account=Depends(user)):
     s = get_store()
     p = s.project(pid, account['id'])
-    return serialize(s.latest('blueprints', pid)) if p['status'] == 'BLUEPRINT_READY' else None
+    return blueprint_service.present(s, p, s.latest('blueprints', pid))
+
+
+class BlueprintEdit(BaseModel):
+    base_version: int = Field(ge=1)
+    content: dict
+    note: str = Field(default='Manual blueprint revision', min_length=1, max_length=1000)
+
+
+class BlueprintRegenerate(BaseModel):
+    base_version: int = Field(ge=1)
+    part: Literal['architecture_report', 'experience_report', 'data_report', 'planning_report']
+    chapter: str = Field(default='', max_length=50)
+    instructions: str = Field(min_length=1, max_length=4000)
+
+
+class BlueprintApproval(BaseModel):
+    version: int = Field(ge=1)
+
+
+@router.put('/projects/{pid}/blueprint/parts/{part}')
+def edit_blueprint_part(pid: str, part: str, body: BlueprintEdit, account=Depends(user)):
+    s = get_store()
+    p = s.project(pid, account['id'], 'write')
+    if part not in PART_SCHEMAS:
+        raise AppError('Unknown blueprint part.', 404)
+    s.acquire(pid, account['id'])
+    try:
+        saved = blueprint_service.current(s, p, body.base_version)
+        try:
+            updated = blueprint_service.save_part(s, p, saved, part, body.content, account['id'], body.note)
+        except ValueError as exc:
+            raise AppError('Blueprint validation failed: ' + str(exc)[:1500], 422) from None
+        return blueprint_service.present(s, s.project(pid, account['id']), updated)
+    finally:
+        s.update(pid, busy=False)
+
+
+@router.post('/projects/{pid}/blueprint/regenerate', status_code=202)
+def regenerate_blueprint_part(pid: str, body: BlueprintRegenerate, tasks: BackgroundTasks, account=Depends(user)):
+    svc = service()
+    p = svc.store.project(pid, account['id'], 'write')
+    svc.ai.require()
+    if body.chapter and body.chapter not in PART_SCHEMAS[body.part].required_keys:
+        raise AppError('Choose a chapter belonging to this blueprint part.', 400)
+    svc.store.acquire(pid, account['id'])
+    try:
+        saved = blueprint_service.current(svc.store, p, body.base_version)
+        if not all(k in saved['content'] for k in PART_SCHEMAS):
+            raise AppError('Run a full analysis to upgrade this saved legacy blueprint first.', 409)
+        tasks.add_task(blueprint_service.regenerate, svc.store, svc.ai, pid, account['id'], body.base_version, body.part, body.chapter, body.instructions)
+        return {'status': 'regenerating', 'version': body.base_version}
+    except Exception:
+        svc.store.update(pid, busy=False)
+        raise
+
+
+@router.post('/projects/{pid}/blueprint/approve')
+def approve_blueprint(pid: str, body: BlueprintApproval, account=Depends(user)):
+    s = get_store()
+    p = s.project(pid, account['id'], 'review')
+    s.acquire(pid, account['id'], 'review')
+    try:
+        return blueprint_service.approve(s, p, body.version, account['id'])
+    finally:
+        s.update(pid, busy=False)
 
 
 @router.post('/projects/{pid}/red-team/revise', status_code=202)
@@ -202,11 +271,11 @@ def blueprint_versions(pid: str, account=Depends(user)):
 @router.get('/projects/{pid}/blueprint/versions/{version}')
 def blueprint_version(pid: str, version: int, account=Depends(user)):
     s = get_store()
-    s.project(pid, account['id'])
+    p = s.project(pid, account['id'])
     saved = s.db.blueprints.find_one({'project_id': pid, 'version': version})
     if not saved:
         raise AppError('Blueprint version not found.', 404)
-    return serialize(saved)
+    return blueprint_service.present(s, p, saved)
 
 
 @router.post('/projects/{pid}/blueprint/versions/{version}/restore')
@@ -227,7 +296,8 @@ def restore_blueprint(pid: str, version: int, body: ReviewInput, account=Depends
             raise AppError('This version uses older project evidence. Run analysis instead of restoring it.', 409)
         restored = s.save_blueprint(pid, {**content, 'restored_from_version': version})
         s.save_analysis(pid, restored['content'])
-        s.update(pid, status='BLUEPRINT_READY', review_gate=content.get('review_gate'), ai_necessity=content.get('ai_necessity'))
+        from app.services.blueprint_quality import assess
+        s.update(pid, status='BLUEPRINT_READY' if assess(content)['complete'] else 'BLUEPRINT_DRAFT', review_gate=content.get('review_gate'), ai_necessity=content.get('ai_necessity'))
         return serialize(restored)
     finally:
         s.update(pid, busy=False)
@@ -237,9 +307,10 @@ def restore_blueprint(pid: str, version: int, body: ReviewInput, account=Depends
 def generate_blueprint(pid: str, account=Depends(user)):
     s = get_store()
     p = s.project(pid, account['id'])
-    if p['status'] != 'BLUEPRINT_READY':
+    saved = s.latest('blueprints', pid)
+    if not saved:
         raise AppError('Finish analysis and Red Team review before generating a blueprint.', 409)
-    return serialize(s.latest('blueprints', pid))
+    return blueprint_service.present(s, p, saved)
 
 
 @router.get('/projects/{pid}/documents')

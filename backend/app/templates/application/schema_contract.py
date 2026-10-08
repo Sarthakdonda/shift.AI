@@ -3,6 +3,8 @@ def compatibility(previous, current):
     if not previous:
         return []
     issues = []
+    if previous.get('storage_mode', 'shared_server') != current.get('storage_mode', 'shared_server'):
+        issues.append('Changing storage mode requires an explicit data transfer. Keep the current storage mode to preserve access to existing records.')
     entities = {e['name']: e for e in current['entities']}
     for old in previous['entities']:
         new = entities.get(old['name'])

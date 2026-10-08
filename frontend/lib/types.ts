@@ -188,4 +188,7 @@ export type Blueprint = {
   version: number;
   created_at: string;
   content: Analysis;
+  stale?: boolean;
+  quality?: {complete:boolean;checks:{key:string;label:string;status:string;detail:string}[]};
+  approval?: {actor:string;created_at:string;version:number} | null;
 };

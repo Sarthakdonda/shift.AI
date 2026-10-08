@@ -40,7 +40,7 @@ class ProjectService:
             overrides['gemini_effort'] = p['effort']
             # A stored effort replaces any fixed thinking level from the environment.
             overrides['gemini_thinking_level'] = None
-        if overrides and hasattr(self.ai.settings, 'model_copy'):
+        if overrides and getattr(self.ai, 'provider', 'gemini') == 'gemini' and hasattr(self.ai.settings, 'model_copy'):
             self.ai = copy.copy(self.ai)
             self.ai.settings = self.ai.settings.model_copy(update=overrides)
         messages = self.store.related('messages', pid)
@@ -53,13 +53,15 @@ class ProjectService:
 
     def discover(self, pid, owner):
         context = self.context(pid, owner)
-        result, memory = DiscoveryService(self.ai).run(context, serialize(self.store.related('messages', pid)))
+        engine = DiscoveryService(self.ai)
+        result, memory = engine.run(context, serialize(self.store.related('messages', pid)))
         if self.generation:
             self.generation.check()
         self.store.update(pid, project_context=memory.model_dump(), discovery=result.model_dump(), discovery_scores=result.scores.model_dump(), analysis_ready=result.enough_information, status='DISCOVERY', error=None, retrieval_warnings=context['retrieval_warnings'])
         message = result.next_question or 'Your project context is ready for analysis.'
         self.store.message(pid, 'assistant', message, message_type='status' if result.enough_information else 'question',
-                           questions=[q.model_dump() for q in result.next_questions])
+                           questions=[q.model_dump() for q in result.next_questions],
+                           question_notice=engine.notice if result.next_questions else '')
         return {'message': message, 'stage': 'DISCOVERY', 'discovery_scores': result.scores.model_dump(), 'needs_user_input': not result.enough_information, 'analysis_ready': result.enough_information, 'project_id': pid}
 
     def readiness_verified(self, pid, project):
@@ -180,12 +182,16 @@ class ProjectService:
             content['evidence'] = context['previous_discovery']['collected_information'] if context['previous_discovery'] else []
             content['retrieval_warnings'] = context['retrieval_warnings']
             content['final_report'] = assemble_report(content, context)
+            from app.services.blueprint_quality import assess
+            content['blueprint_quality'] = assess(content)
             self.store.save_analysis(pid, content)
             self.store.save_blueprint(pid, content)
-            self.store.update(pid, status='BLUEPRINT_READY', review_gate=content['review_gate'], ai_necessity=content['ai_necessity'], error=None)
+            self.store.update(pid, status='BLUEPRINT_READY' if content['blueprint_quality']['complete'] else 'BLUEPRINT_DRAFT', review_gate=content['review_gate'], ai_necessity=content['ai_necessity'], error=None)
             status = {'blocked': 'Your revised blueprint is saved as a draft with unresolved Red Team blockers.',
                       'conditional': 'Your revised blueprint is saved with remaining risks to validate.',
                       'passed': 'Your blueprint passed the design review.'}[content['review_gate']]
+            if not content['blueprint_quality']['complete']:
+                status = 'Your blueprint is saved as a draft. Open Blueprint to resolve the missing quality checks before approval.'
             self.store.message(pid, 'assistant', status + ' Open Red Team to see each finding, the actual blueprint changes, verification evidence, and any decisions needed from you.', message_type='status')
         except Exception as exc:
             if isinstance(exc, AppError) and exc.code == 'generation_cancelled':
@@ -197,7 +203,8 @@ class ProjectService:
                 # A failed revision never replaces the last saved blueprint or its review.
                 previous = self.store.latest('blueprints', pid)['content']
                 self.store.save_analysis(pid, previous)
-                self.store.update(pid, status='BLUEPRINT_READY', review_gate=previous.get('review_gate'), error=message)
+                from app.services.blueprint_quality import assess
+                self.store.update(pid, status='BLUEPRINT_READY' if assess(previous)['complete'] else 'BLUEPRINT_DRAFT', review_gate=previous.get('review_gate'), error=message)
             else:
                 self.store.update(pid, status='ERROR', error=message)
         finally:

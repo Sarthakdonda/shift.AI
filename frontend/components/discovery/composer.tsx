@@ -199,7 +199,7 @@ export function ChatComposer({
                         <T text={"Upload a document"} />
                       </strong>
                       <small>
-                        <T text={"PDF, DOCX, PPTX, TXT, CSV, XLSX"} />
+                        <T text={"PDF, Office documents, text and scanned images"} />
                       </small>
                     </span>
                   </button>

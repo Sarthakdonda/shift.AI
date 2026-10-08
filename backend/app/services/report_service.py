@@ -45,7 +45,9 @@ def assemble_report(content, context):
     validate_consistency(content['option_decision'], content['solution'], content)
     project = context['project']
     decision = OptionDecision.model_validate(content['option_decision'])
-    generated = {c['key']: c for key in PART_SCHEMAS for c in content[key]['chapters']}
+    from app.services.blueprint_contract import materialize
+    published = materialize(content)
+    generated = {c['key']: c for key in PART_SCHEMAS for c in published[key]['chapters']}
     w, r, s, n, v = (content[k] for k in ('workflow_analysis', 'root_cause', 'solution', 'ai_necessity', 'business_value'))
     conclusion, planning = content['conclusion'], content['planning_report']
     evidence = content.get('evidence', [])
@@ -121,6 +123,11 @@ def assemble_report(content, context):
          *[x.tier.title() + ' rejected: ' + x.reason for x in decision.rejection_reasons], *['Decision sensitivity: ' + x for x in decision.decision_sensitivities]]))
     for key in ('scope','stack','hld','lld','future_process'):
         add(generated[key])
+    requirements = content['architecture_report'].get('requirements', [])
+    if requirements:
+        scope = next(c for c in out if c['key'] == 'scope')
+        scope['tables'] = [*scope['tables'], table('Requirement specification', ['ID / kind', 'Requirement / user story', 'Acceptance criteria'],
+            [[r['id'] + ' / ' + r['kind'], r['description'] + '\n' + r['user_story'], '\n'.join(r['acceptance'])] for r in requirements])]
     ux = merge_chapters('User journeys, navigation and wireframes', generated['journeys'], generated['wireframes'])
     add(ux)
     data = merge_chapters('Data model, ER diagram and database schema', generated['data_model'], generated['database'])
@@ -146,6 +153,18 @@ def assemble_report(content, context):
     ready['tables'] = [*ready['tables'], table('Feasibility (advisory)', ['Dimension', 'Score / reason'],
         [[k.title(), f"{d['score']}/100 — {d['reason']}"] for k, d in v['feasibility'].items() if k != 'overall'] + [['Overall', str(v['feasibility']['overall']) + '/100']])]
     add(ready)
+    add(chapter('traceability', 'Requirement traceability and acceptance tests',
+        'Each requirement links its business objective to modules, components, data, APIs and proposed tests. These are acceptance plans, not executed test results.',
+        tables=[table(r['id'] + ': ' + r['objective'], ['Traceability link', 'Implementation reference'],
+            [[label, '\n'.join(r[key]) or 'Not applicable to this requirement'] for label, key in
+             [('Modules', 'modules'), ('Architecture components', 'components'), ('Database entities', 'entities'),
+              ('API operations', 'api_operations'), ('Proposed test cases', 'test_cases'), ('Supporting evidence', 'evidence')]]) for r in requirements]))
+    add(chapter('explainability', 'Recommendation rationale and supporting evidence', decision.selection_reason,
+        tables=[table('Selected approach', ['Recommendation', 'Reason / alternative'],
+            [[decision.selected, decision.selection_reason], *[[x.tier + ' alternative', x.reason] for x in decision.rejection_reasons]])] +
+        [table(r['id'] + ': ' + r['description'], ['Evidence / assumption', 'Source or decision'],
+            [['Business objective', r['objective']], ['Supporting user answer / document', '\n'.join(r['evidence'])],
+             ['Assumptions to validate', '\n'.join(r['assumptions']) or 'No additional assumptions recorded']]) for r in requirements]))
     add(chapter('risks', 'Risk register and mitigations', 'Mitigations are proposed controls; residual risks and validation actions remain visible.',
         tables=[table(risk['risk'], ['Risk field', 'Assessment'], [[k.replace('_', ' ').title(), val] for k, val in risk.items() if k != 'risk']) for risk in planning['risks']] + finding_tables(v['risks'])))
     review_tables = []
@@ -183,6 +202,6 @@ def assemble_report(content, context):
         if any(c[k] for c in out for k in ('diagrams','screens','code_assets')) else []))
     # Generated chapters are validated individually before merging. Merged sections
     # can legitimately contain more tables than one generation-stage chapter.
-    return prepare_report({'schema_version': 2, 'title': project['name'], 'industry': project.get('industry') or 'Not specified',
+    return prepare_report({'schema_version': 3, 'title': project['name'], 'industry': project.get('industry') or 'Not specified',
             'language': context['output_language'], 'source_revision': project.get('context_revision', 0),
             'selected_option': decision.selected, 'sections': out})

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { api, API_BASE } from "@/lib/api";
 import { usePathname, useRouter } from "next/navigation";
 import { ArrowRight, Check, LoaderCircle } from "lucide-react";
 import { T } from "@/components/locale";
@@ -28,6 +29,9 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
+  const [code, setCode] = useState("");
+  const [sso, setSso] = useState(false);
+  useEffect(() => { api<{enabled: boolean}>("/auth/sso/config").then(v => setSso(v.enabled)).catch(() => {}); }, []);
   const showError = useCallback((message: string) => setError(message), []);
   const changeBusy = useCallback((value: boolean) => setBusy(value), []);
   const nameError =
@@ -72,7 +76,7 @@ export default function Login() {
           setWaitingForWorkspace,
         );
       else
-        await signInWithEmail(email.trim(), password, setWaitingForWorkspace);
+        await signInWithEmail(email.trim(), password, setWaitingForWorkspace, code);
       await refresh();
       setPassword("");
       setConfirmation("");
@@ -123,6 +127,7 @@ export default function Login() {
             noValidate
             aria-busy={busy}
           >
+            {!signup && <Field id="login-code" name="code" label="Authenticator or recovery code (if enabled)" autoComplete="one-time-code" value={code} onChange={e => setCode(e.target.value)} maxLength={64} disabled={busy} />}
             {signup && (
               <Field
                 id="signup-name"
@@ -234,6 +239,7 @@ export default function Login() {
             onError={showError}
             onBusyChange={changeBusy}
           />
+          {sso && <a className={styles.submit} href={`${API_BASE}/api/auth/sso/start`}>Sign in with your organization</a>}
         </>
       )}
     </AccessFrame>

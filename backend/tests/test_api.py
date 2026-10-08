@@ -200,7 +200,7 @@ def test_discovery_to_blueprint_end_to_end(setup, project):
     assert client.get(f'/api/projects/{project}/messages').json()[-1]['role'] == 'assistant'
     assert response.json()['stage'] == 'SYSTEM_ANALYSIS'
     p = client.get(f'/api/projects/{project}').json()
-    assert p['status'] == 'BLUEPRINT_READY' and p['busy'] is False
+    assert p['status'] == 'BLUEPRINT_DRAFT' and p['busy'] is False  # Unresolved high-severity review finding.
     bp = client.get(f'/api/projects/{project}/blueprint').json()
     assert bp['content']['ai_necessity']['classification'] == 'AUTOMATION_SUFFICIENT'
     assert bp['content']['solution']['components'][0]['uses_ai'] is False
@@ -210,7 +210,7 @@ def test_discovery_to_blueprint_end_to_end(setup, project):
     assert client.post(f'/api/projects/{project}/blueprint/generate').json()['version'] == 1
     # Reload from a fresh repository instance: results live in Mongo collections.
     from app.repositories.store import Store
-    assert Store(store.db).project(project, 'local-workspace')['status'] == 'BLUEPRINT_READY'
+    assert Store(store.db).project(project, 'local-workspace')['status'] == 'BLUEPRINT_DRAFT'
     client.post(f'/api/projects/{project}/chat', json={'content': 'Correction: the data now has many exceptional cases.'})
     assert client.get(f'/api/projects/{project}/blueprint').json()['version'] == 2
     assert client.get(f'/api/projects/{project}/analysis').json() is not None
@@ -272,7 +272,7 @@ def test_document_processing_and_delete(setup, project):
     assert d['summary'] and d['facts']
     assert store.db.document_chunks.count_documents({'project_id': project}) > 0
     assert ai.calls[:2] == ['DocumentSummary', 'Discovery']
-    assert store.project(project, 'local-workspace')['status'] == 'BLUEPRINT_READY'
+    assert store.project(project, 'local-workspace')['status'] == 'BLUEPRINT_DRAFT'
     assert client.delete(f'/api/projects/{project}/documents/{did}').status_code == 200
     assert store.db.document_chunks.count_documents({'project_id': project}) == 0
     assert client.get(f'/api/projects/{project}').json()['discovery'] is None

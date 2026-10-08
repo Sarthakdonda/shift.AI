@@ -15,17 +15,6 @@ export class ApiError extends Error {
   }
 }
 
-const PROVIDER_CODES = [
-  "rate_limited",
-  "provider_unavailable",
-  "provider_error",
-  "gemini_configuration",
-  "model_unavailable",
-  "database_unavailable",
-  "database_configuration",
-  "invalid_ai_output",
-];
-
 export async function api<T>(
   path: string,
   options: RequestInit = {},
@@ -52,19 +41,26 @@ export async function api<T>(
   }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    if (response.status >= 500 && !PROVIDER_CODES.includes(data.code)) {
+    const code = typeof data.code === "string" ? data.code : undefined;
+    const detail =
+      typeof data.detail === "string"
+        ? data.detail
+        : Array.isArray(data.detail)
+          ? data.detail.map((d: { msg: string }) => d.msg).join(". ")
+          : "";
+    // Coded errors are written for the user: quota, provider, database, validation.
+    // Only uncoded server failures are replaced, so setup details never leak.
+    if (response.status >= 500 && !code) {
       throw new ApiError(
         "Your workspace is temporarily unavailable. Please try again shortly.",
         response.status,
       );
     }
-    const message =
-      typeof data.detail === "string"
-        ? data.detail
-        : Array.isArray(data.detail)
-          ? data.detail.map((d: { msg: string }) => d.msg).join(". ")
-          : "That request failed. Please try again.";
-    throw new ApiError(message, response.status, data.code);
+    throw new ApiError(
+      detail || "That request failed. Please try again.",
+      response.status,
+      code,
+    );
   }
   return data as T;
 }

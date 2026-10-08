@@ -1,0 +1,24 @@
+{
+  "app": {
+    "[project]/app/_not-found/page": [],
+    "[project]/app/account/page": [],
+    "[project]/app/billing/page": [],
+    "[project]/app/builder-admin/page": [],
+    "[project]/app/dashboard/page": [],
+    "[project]/app/forgot-password/page": [],
+    "[project]/app/login/page": [],
+    "[project]/app/page": [],
+    "[project]/app/project/[id]/[[...section]]/page": [],
+    "[project]/app/project/[id]/application/page": [],
+    "[project]/app/project/[id]/deliverables/page": [],
+    "[project]/app/project/new/page": [],
+    "[project]/app/reset-password/page": [],
+    "[project]/app/settings/page": [],
+    "[project]/app/signup/page": [],
+    "[project]/app/transformation/page": [],
+    "[project]/app/workspaces/page": []
+  },
+  "appUsingSizeAdjust": false,
+  "pages": {},
+  "pagesUsingSizeAdjust": false
+}

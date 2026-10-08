@@ -13,7 +13,7 @@ from reportlab.platypus import LongTable, Paragraph, SimpleDocTemplate, Spacer, 
 from reportlab.platypus.tableofcontents import TableOfContents
 
 from app.services.export_service import lines
-from app.services.pdf_diagrams import diagram_figures, entity_parts, pdf_text
+from app.services.pdf_diagrams import diagram_figures, wireframe_figures, entity_parts, pdf_text
 from app.services.report_presentation import prepare_report, fingerprint
 
 
@@ -36,9 +36,11 @@ def blueprint_pdf(title, content):
                           spaceAfter=7, textColor=colors.HexColor('#222222'))
     heading = ParagraphStyle('Chapter', parent=body, fontName='BlueprintBold',
                              fontSize=13, leading=17, spaceBefore=14,
-                             spaceAfter=9, keepWithNext=True)
-    subheading = ParagraphStyle('Subheading', parent=heading, fontSize=10, leading=14)
-    cover = ParagraphStyle('Title', parent=heading, fontSize=20, leading=26)
+                             spaceAfter=9, keepWithNext=True,
+                             textColor=colors.HexColor('#17344d'), backColor=colors.HexColor('#eef3f7'),
+                             borderPadding=(8, 9, 8, 9))
+    subheading = ParagraphStyle('Subheading', parent=heading, fontSize=10, leading=14, backColor=None, borderPadding=0)
+    cover = ParagraphStyle('Title', parent=heading, fontSize=23, leading=29, backColor=None, borderPadding=0)
     cell = ParagraphStyle('Cell', parent=body, fontSize=8, leading=11, spaceAfter=0)
     header_cell = ParagraphStyle('HeaderCell', parent=cell, fontName='BlueprintBold')
     note = ParagraphStyle('Note', parent=body, fontSize=8, leading=11, textColor=colors.HexColor('#555555'))
@@ -58,8 +60,9 @@ def blueprint_pdf(title, content):
         rows += [[paragraph(value, cell) for value in row] for row in table['rows']]
         widths = [doc.width * .28, doc.width * .72] if len(columns) == 2 else [doc.width / len(columns)] * len(columns)
         story.append(LongTable(rows, colWidths=widths, repeatRows=1, splitInRow=1, style=[
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f2f2f2')),
-            ('GRID', (0, 0), (-1, -1), .35, colors.HexColor('#bdbdbd')),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#eaf0f5')),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#fafbfc')]),
+            ('GRID', (0, 0), (-1, -1), .3, colors.HexColor('#ccd5dd')),
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
             ('LEFTPADDING', (0, 0), (-1, -1), 6),
             ('RIGHTPADDING', (0, 0), (-1, -1), 6),
@@ -69,6 +72,15 @@ def blueprint_pdf(title, content):
         story.append(Spacer(1, 7))
 
     story = [paragraph(title, cover), paragraph('Strategy and implementation blueprint', subheading)]
+    if content.get('export_notice'):
+        story.append(paragraph(content['export_notice'], note))
+    quality = content.get('blueprint_quality')
+    if quality:
+        status = 'Design quality checks passed — approval is a separate decision.' if quality['complete'] else 'DRAFT — quality checks require attention before approval.'
+        story.append(paragraph(status, subheading))
+        for check in quality['checks']:
+            if check['status'] != 'passed':
+                story.append(paragraph(check['label'] + ': ' + check['detail'], note))
     report = prepare_report(content['final_report']) if content.get('final_report') else None
     if report:
         if report.get('report_version'):
@@ -117,6 +129,8 @@ def blueprint_pdf(title, content):
             for screen in section['screens']:
                 story.append(paragraph(screen['name'], subheading))
                 story.append(paragraph(screen['persona'] + ': ' + screen['purpose']))
+                story.extend(wireframe_figures(screen, doc.width - 12))
+                story.append(Spacer(1, 10))
                 add_table({'title': 'Screen controls', 'columns': ['Control', 'Purpose and behavior'],
                            'rows': [[control['label'], control['detail']] for control in screen['controls']]})
             for asset in section['code_assets']:
@@ -135,6 +149,8 @@ def blueprint_pdf(title, content):
         canvas.saveState()
         canvas.setFont('Blueprint', 8)
         canvas.setFillColor(colors.HexColor('#555555'))
+        canvas.setStrokeColor(colors.HexColor('#d5dde4'))
+        canvas.line(42, 36, A4[0]-42, 36)
         canvas.drawString(42, 24, 'shift.AI | Implementation blueprint')
         canvas.drawRightString(A4[0] - 42, 24, str(document.page))
         canvas.restoreState()

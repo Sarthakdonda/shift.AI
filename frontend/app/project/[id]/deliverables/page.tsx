@@ -1,6 +1,7 @@
 "use client";
 
 import { T } from "@/components/locale";
+import Link from "next/link";
 import { ImportPlanner } from "@/components/integrations";
 import { useRouter } from "next/navigation";
 import { use, useState, useEffect, useCallback } from "react";
@@ -183,21 +184,16 @@ export default function Deliverables({
                 state.busy ||
                 action ||
                 !!draft ||
-                !project?.analysis_ready ||
-                project.status !== "BLUEPRINT_READY"
+                !state.generation_ready
               }
               onClick={() => setConfirm(true)}
             >
               <T text={"Generate complete pack"} />
             </button>
-            {(!project?.analysis_ready ||
-              project.status !== "BLUEPRINT_READY") && (
+            {!state.generation_ready && (
               <p>
-                <T
-                  text={
-                    "Complete discovery and core analysis to enable AI generation. You can create and edit drafts now."
-                  }
-                />
+                {state.generation_reason || "Upload or select a blueprint to generate directly."}{" "}
+                <Link href={`/project/${id}/application`}>Open Application studio</Link>
               </p>
             )}
           </div>
@@ -239,8 +235,7 @@ export default function Deliverables({
                   state.busy ||
                   action ||
                   !!draft ||
-                  !project?.analysis_ready ||
-                  project.status !== "BLUEPRINT_READY"
+                  !state.generation_ready
                 }
                 onClick={() => void generate(kind)}
               >

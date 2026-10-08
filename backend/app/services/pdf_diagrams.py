@@ -123,7 +123,21 @@ class DiagramFigure(Flowable):
         for node, blocks, height in self.nodes:
             x, y, _ = self.positions[node['id']]
             canvas.setFillColor(colors.white)
-            canvas.rect(x, y, self.box_width, height, stroke=1, fill=1)
+            canvas.setStrokeColor(colors.HexColor('#8c9dad'))
+            if not self.er and node.get('kind') == 'decision':
+                path = canvas.beginPath()
+                path.moveTo(x + 10, y)
+                for px, py in [(x+self.box_width-10,y),(x+self.box_width,y+height/2),
+                               (x+self.box_width-10,y+height),(x+10,y+height),(x,y+height/2)]:
+                    path.lineTo(px, py)
+                path.close()
+                canvas.drawPath(path, stroke=1, fill=1)
+            else:
+                canvas.roundRect(x, y, self.box_width, height,
+                                 12 if node.get('kind') in ('start', 'end') else 3, stroke=1, fill=1)
+            canvas.setFillColor(colors.HexColor('#eef3f7'))
+            canvas.rect(x+1, y+height-blocks[0].height-12, self.box_width-2, blocks[0].height+11, stroke=0, fill=1)
+            canvas.setStrokeColor(INK)
             canvas.setFillColor(INK)
             cursor = y + height - 8
             for index, block in enumerate(blocks):
@@ -161,11 +175,96 @@ def diagram_figures(diagram, width):
         yield overview, list(enumerate(edges, 1))
         return
     by_id = {node['id']: node for node in nodes}
+    if any(edge['source'] not in by_id or edge['target'] not in by_id for edge in edges):
+        raise ValueError('Diagram connection references a missing node. Edit or regenerate the diagram.')
     used = set()
     for index, edge in enumerate(edges):
         ids = list(dict.fromkeys([edge['source'], edge['target']]))
         used.update(ids)
-        yield DiagramFigure([by_id[key] for key in ids], [edge], width, er, index), [(index + 1, edge)]
+        pair = [by_id[key] for key in ids]
+        figure = DiagramFigure(pair, [edge], width, er, index)
+        if figure.height <= 560:
+            yield figure, [(index + 1, edge)]
+        else:
+            # Long field catalogues stay readable in continuation cards; the
+            # relationship is shown with entity names before the complete fields.
+            yield DiagramFigure([{**n, 'label': entity_parts(n)[0]} for n in pair], [edge], width, er, index), [(index + 1, edge)]
+            for node in pair:
+                yield from entity_continuations(node, width, er)
     for node in nodes:
         if node['id'] not in used:
-            yield DiagramFigure([node], [], width, er), []
+            yield from entity_continuations(node, width, er)
+
+
+def entity_continuations(node, width, er):
+    figure = DiagramFigure([node], [], width, er)
+    if figure.height <= 560:
+        yield figure, []
+        return
+    title, fields = entity_parts(node)
+    for start in range(0, len(fields), 10):
+        yield DiagramFigure([{**node, 'label': title + (' (continued)' if start else '') + '\n' + '\n'.join(fields[start:start+10])}], [], width, er), []
+
+
+class WireframeFigure(Flowable):
+    """A real low-fidelity screen: navigation, inputs, metrics, tables and actions."""
+    def __init__(self, screen, controls, width, continued=False):
+        super().__init__()
+        self.width = width
+        self.screen = screen
+        self.title = TextBlock(screen['name'] + (' (continued)' if continued else ''), width-32, True)
+        self.controls = []
+        for control in controls:
+            label = TextBlock(control['label'], width-44, True)
+            detail = TextBlock(control['detail'], width-44)
+            visual = 32 if control['kind'] in ('input', 'select', 'button', 'table', 'metric') else 4
+            height = label.height + detail.height + visual + 30
+            self.controls.append((control, label, detail, height))
+        self.height = self.title.height + 42 + sum(item[3] for item in self.controls)
+
+    def draw(self):
+        canvas = self.canv
+        canvas.saveState()
+        canvas.setStrokeColor(colors.HexColor('#a6b4c1'))
+        canvas.setFillColor(colors.white)
+        canvas.roundRect(0, 0, self.width, self.height, 5, stroke=1, fill=1)
+        canvas.setFillColor(colors.HexColor('#edf2f6'))
+        canvas.rect(1, self.height-self.title.height-24, self.width-2, self.title.height+23, stroke=0, fill=1)
+        self.title.drawOn(canvas, 16, self.height-self.title.height-12)
+        cursor = self.height-self.title.height-36
+        for control, label, detail, height in self.controls:
+            label.drawOn(canvas, 20, cursor-label.height)
+            cursor -= label.height+8
+            if control['kind'] in ('input', 'select', 'button', 'metric'):
+                canvas.setFillColor(colors.HexColor('#e8eef3') if control['kind'] == 'button' else colors.white)
+                canvas.roundRect(20, cursor-24, min(self.width-40, 170) if control['kind'] == 'button' else self.width-40, 24, 3, stroke=1, fill=1)
+                if control['kind'] == 'select':
+                    canvas.line(self.width-38,cursor-9,self.width-33,cursor-15)
+                    canvas.line(self.width-33,cursor-15,self.width-28,cursor-9)
+                cursor -= 32
+            elif control['kind'] == 'table':
+                canvas.setFillColor(colors.HexColor('#f3f5f7'))
+                canvas.rect(20,cursor-24,self.width-40,24,stroke=1,fill=1)
+                for x in range(1,4):
+                    canvas.line(20+(self.width-40)*x/4,cursor,20+(self.width-40)*x/4,cursor-24)
+                canvas.line(20,cursor-12,self.width-20,cursor-12)
+                cursor -= 32
+            else:
+                cursor -= 4
+            detail.drawOn(canvas,20,cursor-detail.height)
+            cursor -= detail.height+22
+        canvas.restoreState()
+
+
+def wireframe_figures(screen, width):
+    batch = []
+    continued = False
+    for control in screen['controls']:
+        candidate = WireframeFigure(screen, [*batch, control], width, continued)
+        if candidate.height > 540 and batch:
+            yield WireframeFigure(screen, batch, width, continued)
+            batch = []
+            continued = True
+        batch.append(control)
+    if batch:
+        yield WireframeFigure(screen, batch, width, continued)

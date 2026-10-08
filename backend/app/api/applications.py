@@ -1,4 +1,5 @@
 from datetime import timedelta
+import hashlib
 from bson import ObjectId
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from fastapi.responses import Response
@@ -9,11 +10,16 @@ from app.core.errors import AppError
 from app.models.application import PlanInput, SpecEdit, VersionInput, BuildInput, CreditGrant, PlanConfig
 from app.repositories.store import get_store, now, serialize
 from app.services.gemini_service import get_gemini
+from app.services.groq_service import get_builder_ai
 from app.services import application_service as service, application_runner as runner, billing_service as billing, deployment_service as deployment
 from app.services.application_generator import archive, compatibility, digest
 from app.services.project_service import ProjectService
 from app.services.url_service import extract_url
 from app.services import vercel_deployment
+from app.services import subscription_service
+from app.services import credit_checkout
+from app.services.job_queue import enqueue
+from app.services import remote_preview
 
 router = APIRouter(prefix='/api', tags=['Application builder'])
 
@@ -32,7 +38,7 @@ def credits(account=Depends(user)):
     s = get_store()
     billing.recover_orphans(s, account['id'])
     return {'account': serialize(billing.account(s, account['id'])), 'plans': billing.PLANS, 'plan': billing.policy(s), 'build_cost': billing.policy(s)['build_cost'],
-            'policy': 'Credits are reserved once and charged only after isolated runtime validation succeeds. Failed or unvalidated builds are refunded.', 'payments_enabled': False}
+            'policy': 'Credits are reserved once and charged only after isolated runtime validation succeeds. Failed or unvalidated builds are refunded.', 'payments_enabled': subscription_service.configured() or credit_checkout.configured(), 'payment_mode': get_settings().razorpay_mode}
 
 
 @router.get('/projects/{pid}/application')
@@ -63,22 +69,43 @@ def overview(pid: str, account=Depends(user)):
             service.assert_current(s, p, service.latest_spec(s, pid))
         except AppError:
             stale = True
+    from app.services.application_recovery import history
     return serialize({'specs': specs, 'builds': builds, 'deployments': deployments, 'job': p.get('application_job'),
+                      'saved_generations': history(s, p),
                       'role': p['access_role'], 'busy': p.get('busy', False), 'stale': stale,
                       'deployment_configured': bool(deployment.target_for(pid)), 'build_cost': billing.policy(s)['build_cost'],
                       'vercel_configured': bool(get_settings().vercel_token),
                       'platform_admin': account['id'] in [v.strip() for v in get_settings().builder_admin_ids.split(',')],
-                      'preview': s.db.application_previews.find_one({'project_id': pid, 'status': 'running'}, {'password': 0})})
+                      'remote_preview': bool(remote_preview.origin()),
+                      'preview': s.db.application_previews.find_one({'project_id': pid, 'status': 'running'}, {'password': 0, 'ticket_hash': 0, 'ticket_expires': 0})})
+
+
+@router.post('/projects/{pid}/application/generations/{run_id}/restore')
+def restore_generation(pid: str, run_id: str, account=Depends(user)):
+    from app.services.application_recovery import restore
+    s = get_store(); s.acquire(pid, account['id'])
+    try:
+        return restore(s, s.project(pid, account['id'], 'write'), run_id)
+    finally:
+        s.update(pid, busy=False)
 
 
 @router.post('/projects/{pid}/application/plan', status_code=202)
 def plan(pid: str, body: PlanInput, tasks: BackgroundTasks, account=Depends(user)):
     s = get_store(); p = s.project(pid, account['id'], 'write')
     service.current_blueprint(s, p)
-    ai = get_gemini(); ai.require()
+    if body.resume_id:
+        saved_run = s.db.application_generation_runs.find_one({'_id': body.resume_id, 'project_id': pid})
+        if not saved_run:
+            raise AppError('Saved application generation was not found.', 404)
+        if (service.latest_spec(s, pid) or {}).get('version', 0) != saved_run['base_version']:
+            raise AppError('The application version changed. Start a new specification instead of resuming the old one.', 409, 'application_resume_stale')
+        body.instructions = saved_run['instructions']
+        body.base_version = saved_run['base_version']
+    ai = get_builder_ai(); ai.require()
     s.acquire(pid, account['id'])
     s.update(pid, application_job={'status': 'planning'})
-    tasks.add_task(service.plan_job, s, ai, pid, account['id'], body.instructions, body.base_version)
+    enqueue(s, 'plan', pid, account['id'], {'instructions': body.instructions, 'base_version': body.base_version, 'resume_id': body.resume_id}, tasks, service.plan_job, s, ai, pid, account['id'], body.instructions, body.base_version, body.resume_id)
     return {'status': 'planning'}
 
 
@@ -102,6 +129,8 @@ def approve(pid: str, body: VersionInput, account=Depends(user)):
         if not spec or spec['version'] != body.version:
             raise AppError('Review the latest specification before approval.', 409)
         service.assert_current(s, p, spec)
+        if spec['spec'].get('questions'):
+            raise AppError('Answer the missing requirements and regenerate the specification before approval.', 409)
         if spec.get('migration_issues'):
             raise AppError('Resolve unsafe schema changes before approval: ' + ' '.join(spec['migration_issues']), 409)
         if spec.get('ai_reviews') and any(f.get('requires_revision') and f.get('severity') in ('HIGH', 'CRITICAL') for f in spec['ai_reviews'][-1]['findings']):
@@ -142,7 +171,7 @@ def build(pid: str, body: BuildInput, tasks: BackgroundTasks, account=Depends(us
                'spec': spec['spec'], 'blueprint_id': spec['blueprint_id'], 'approval': spec['approval'], 'billing_actor': account['id'],
                'status': 'queued', 'logs': ['Queued application generation.'], 'created_at': now()}
         doc['_id'] = s.db.application_builds.insert_one(doc).inserted_id
-        tasks.add_task(service.build_job, s, pid, account['id'], str(doc['_id']))
+        enqueue(s, 'build', pid, account['id'], {'build_id': str(doc['_id'])}, tasks, service.build_job, s, pid, account['id'], str(doc['_id']))
         return serialize(doc)
     except Exception:
         if reserved:
@@ -157,6 +186,10 @@ def download(pid: str, bid: str, account=Depends(user)):
     build = build_for(s, pid, bid)
     if not build.get('files'):
         raise AppError('Application files are not available yet.', 409)
+    if build['spec'].get('storage_mode', 'shared_server') != 'shared_server' and build['status'] != 'ready':
+        raise AppError('Portable downloads require successful browser validation. Review the build error and retry.', 409)
+    if build.get('manifest') and (set(build['manifest']) != set(build['files']) or any(digest_value != hashlib.sha256(build['files'][name].encode()).hexdigest() for name, digest_value in build['manifest'].items())):
+        raise AppError('Application source integrity verification failed. Generate a new build.', 409)
     return Response(archive(build['files']), media_type='application/zip', headers={'Content-Disposition': f'attachment; filename="application-{bid}.zip"'})
 
 
@@ -165,7 +198,7 @@ def preview(pid: str, bid: str, request: Request, account=Depends(user)):
     s = get_store(); s.project(pid, account['id'], 'write')
     if not get_settings().application_preview_enabled:
         raise AppError('Local container preview is disabled on this server.', 409)
-    if not request.client or request.client.host not in ('127.0.0.1', '::1', 'localhost', 'testclient'):
+    if not remote_preview.origin() and (not request.client or request.client.host not in ('127.0.0.1', '::1', 'localhost', 'testclient')):
         raise AppError('This preview runs on the builder host. A remote preview gateway is not configured.', 409)
     build = build_for(s, pid, bid)
     if build['status'] != 'ready':
@@ -180,11 +213,11 @@ def preview(pid: str, bid: str, request: Request, account=Depends(user)):
         row = {k: v for k, v in result.items() if k != 'password'}
         row.update(project_id=pid, build_id=bid, actor=account['id'], status='running', created_at=now(), expires_at=now() + timedelta(seconds=result['expires_in_seconds']))
         try:
-            s.db.application_previews.insert_one(row)
+            row['_id'] = s.db.application_previews.insert_one(row).inserted_id
         except Exception:
             runner.stop_preview(result['container'])
             raise
-        return result
+        return {**result, 'url': remote_preview.access_link(s, row, account['id']), 'remote': bool(remote_preview.origin())}
     finally:
         s.update(pid, busy=False)
 
@@ -199,6 +232,15 @@ def stop_preview(pid: str, account=Depends(user)):
         return {'ok': True}
     finally:
         s.update(pid, busy=False)
+
+
+@router.post('/projects/{pid}/application/preview/link')
+def preview_link(pid: str, account=Depends(user)):
+    s = get_store(); s.project(pid, account['id'], 'write')
+    row = s.db.application_previews.find_one({'project_id': pid, 'status': 'running', 'expires_at': {'$gt': now()}})
+    if not row:
+        raise AppError('Start a new preview first.', 404)
+    return {'url': remote_preview.access_link(s, row, account['id'])}
 
 
 def platform_admin(account):
@@ -255,7 +297,7 @@ def deploy(pid: str, bid: str, tasks: BackgroundTasks, account=Depends(user)):
         doc = {'project_id': pid, 'build_id': bid, 'status': 'queued', 'logs': ['Checking deployment readiness.'], 'actor': account['id'], 'created_at': now()}
         doc['_id'] = s.db.application_deployments.insert_one(doc).inserted_id
         s.activity(p, account['id'], 'Application deployment requested', bid)
-        tasks.add_task(deployment.deploy_job, s, pid, account['id'], str(doc['_id']))
+        enqueue(s, 'render', pid, account['id'], {'deployment_id': str(doc['_id'])}, tasks, deployment.deploy_job, s, pid, account['id'], str(doc['_id']))
         return serialize(doc)
     except Exception:
         s.update(pid, busy=False)
@@ -290,7 +332,7 @@ def deploy_vercel(pid: str, bid: str, tasks: BackgroundTasks, account=Depends(us
             raise AppError('Another deployment is pending. Refresh its status first.', 409)
         row = {'project_id': pid, 'build_id': bid, 'target': 'vercel', 'status': 'queued', 'actor': account['id'], 'logs': ['Preparing Vercel frontend with the verified Render backend.'], 'created_at': now()}
         row['_id'] = s.db.application_deployments.insert_one(row).inserted_id
-        tasks.add_task(vercel_deployment.deploy_job, s, pid, account['id'], str(row['_id']))
+        enqueue(s, 'vercel', pid, account['id'], {'deployment_id': str(row['_id'])}, tasks, vercel_deployment.deploy_job, s, pid, account['id'], str(row['_id']))
         return serialize(row)
     except Exception:
         s.update(pid, busy=False)

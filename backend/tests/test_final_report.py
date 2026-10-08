@@ -27,23 +27,23 @@ def generated():
 def test_complete_report_and_editable_exports():
     content = generated()
     report = content['final_report']
-    assert len(report['sections']) == 34  # Cover + 34 ordered sections from the specification.
-    assert len({s['key'] for s in report['sections']}) == 34
+    assert len(report['sections']) == 36  # Original chapters plus traceability and explainability.
+    assert len({s['key'] for s in report['sections']}) == 36
     assert all(s['narrative'] and s['basis'] for s in report['sections'])
     assert report['selected_option'] == 'balanced'
     text = json.dumps(report).lower()
     assert all(word not in text for word in ['hospital','hipaa','fhir','patient'])
-    assert 'wireframes' in text and '0..many' in text
+    assert 'wireframes' in text and '0..*' in text
     for item in content['solution']['data_flow'] + content['solution']['data_requirements']:
         assert item.lower() in text
     doc = Document(io.BytesIO(export(report['title'], content, 'docx')))
     headings = [p.text for p in doc.paragraphs if p.style.name.startswith('Heading')]
     assert any('Three solution options' in h for h in headings)
-    assert any('34. Appendix' in h for h in headings)
+    assert any('36. Appendix' in h for h in headings)
     assert len(doc.tables) > 30
     markdown = export(report['title'], content, 'md').decode()
     assert 'low_level_schema' not in markdown and 'component_refs' not in markdown
-    assert 'Evidence / assumptions' in markdown and 'Invoice · id PK' in markdown
+    assert 'Evidence / assumptions' in markdown and 'id uuid PK' in markdown
     archive = zipfile.ZipFile(io.BytesIO(export(report['title'], content, 'zip')))
     assert {'schema.sql','openapi.yaml','report.md','deliverable.json'}.issubset(archive.namelist())
     assert any(n.endswith('.bpmn') for n in archive.namelist())
@@ -266,3 +266,93 @@ def test_unresolved_review_blocks_export_even_after_cycle_limit():
     report = assemble_report(state, {'project': {'name': 'Pilot', 'initial_problem': 'Invoice workflow'}, 'output_language': 'English'})
     assert 'DRAFT' in report['sections'][0]['narrative']
     assert all(f['status'] == 'open' for f in state['review_ledger'])
+
+
+def test_quality_gate_checks_schema_traceability_and_current_review():
+    from app.services.blueprint_quality import assess
+    content = generated()
+    assert not assess(content)['complete']  # Fixture carries an unresolved HIGH finding.
+    content.update(review_gate='passed', review_ledger=[])
+    assert assess(content)['complete']
+    bad = copy.deepcopy(content)
+    next(s for s in bad['final_report']['sections'] if s['key']=='data_model')['diagrams'] = []
+    assert not assess(bad)['complete']
+    bad = copy.deepcopy(content)
+    bad['architecture_report']['requirements'][0]['api_operations'] = ['POST /invented']
+    assert not assess(bad)['complete']
+    content['review_pending'] = True
+    assert not assess(content)['complete']
+
+
+@pytest.mark.parametrize('defect', ['missing_target', 'wrong_type', 'nullable_pk', 'nonunique_target', 'bad_index', 'unsafe_null'])
+def test_database_contract_rejects_inconsistent_keys(defect):
+    from app.models.blueprint_design import DatabaseDesign
+    design = part_fixture('DataReport')['database_design']
+    rel = design['relationships'][0]
+    if defect == 'missing_target': rel['target_columns'] = ['not_a_column']
+    if defect == 'wrong_type': design['entities'][1]['columns'][1]['data_type'] = 'integer'
+    if defect == 'nullable_pk': design['entities'][0]['columns'][0]['nullable'] = True
+    if defect == 'nonunique_target':
+        rel['target_columns'] = ['supplier_ref']
+        design['entities'][1]['columns'][1]['data_type'] = 'text'
+    if defect == 'bad_index': design['entities'][0]['indexes'][0]['columns'] = ['missing']
+    if defect == 'unsafe_null': rel['on_delete'] = 'SET NULL'
+    with pytest.raises(ValueError): DatabaseDesign.model_validate(design)
+
+
+def test_blueprint_edits_require_review_and_preserve_saved_versions(setup, project, monkeypatch):
+    client, store, ai, _ = setup
+    client.post(f'/api/projects/{project}/discovery/next')
+    first = client.get(f'/api/projects/{project}/blueprint').json()
+    root = f'/api/projects/{project}/blueprint'
+    assert client.post(root+'/approve',json={'version':1}).status_code == 409
+    edited = copy.deepcopy(first['content']['planning_report'])
+    edited['chapters'][0]['narrative'] += ' The owner reviews adoption every Friday.'
+    response = client.put(root+'/parts/planning_report',json={'base_version':1,'content':edited})
+    assert response.status_code == 200
+    second = response.json()
+    assert second['version'] == 2 and not second['quality']['complete']
+    assert second['content']['review_pending']
+    assert store.db.blueprints.find_one({'project_id':project,'version':1})['content'] == first['content']
+    assert client.put(root+'/parts/planning_report',json={'base_version':1,'content':edited}).status_code == 409
+    assert client.post(root+'/approve',json={'version':2}).status_code == 409
+    original = ai.generate_structured
+    def reviewer(instruction, context, schema):
+        if schema.__name__ == 'RedTeam':
+            return schema.model_validate({'summary':'No new design defects; existing risk remains explicit.','findings':[], 'assessments':[]})
+        return original(instruction, context, schema)
+    # The known risk must be explicitly accepted; review omission cannot erase it.
+    monkeypatch.setattr(ai, 'generate_structured', reviewer)
+    fid = second['content']['review_ledger'][0]['id']
+    assert client.post(f'/api/projects/{project}/red-team/revise',json={'version':2,'finding_id':fid,'action':'accept_risk','response':'Owner accepts the CSV dependency for this synthetic pilot.'}).status_code == 202
+    third = client.get(root).json()
+    assert third['quality']['complete'] and not third['content'].get('review_pending')
+    assert client.post(root+'/approve',json={'version':3}).status_code == 200
+    assert client.get(root).json()['approval']['version'] == 3
+    store.invalidate(project)
+    historical = client.get(root).json()
+    assert historical['stale'] and historical['version'] == 3
+    assert client.get(f'/api/projects/{project}/export/blueprint/pdf?version=3').status_code == 200
+    assert client.post(root+'/approve',json={'version':3}).status_code == 409
+
+
+@pytest.mark.parametrize('business,entity,child', [('HR consultancy','Candidate','Interview'),('Warehouse operations','Shipment','TrackingEvent')])
+def test_domain_specific_schema_and_office_diagrams(business, entity, child):
+    from app.services.blueprint_quality import assess
+    content = generated()
+    # Transform the complete synthetic design, not a production project, so every
+    # render path must respect domain-specific canonical names and API operations.
+    text = json.dumps(content).replace('AuditEvent',child).replace('Invoice',entity).replace('invoice',entity.lower())
+    content = json.loads(text)
+    content.update(review_gate='passed',review_ledger=[])
+    content['final_report'] = assemble_report(content, {'project':{'name':business,'industry':business,'initial_problem':'Manage '+entity.lower()+' records and review history.'},'output_language':'English'})
+    assert assess(content)['complete']
+    section = next(s for s in content['final_report']['sections'] if s['key']=='data_model')
+    assert {n['label'].split('\n')[0] for n in section['diagrams'][0]['nodes']} == {entity,child}
+    pdf = PdfReader(io.BytesIO(export(business,content,'pdf')))
+    text = '\n'.join(p.extract_text() for p in pdf.pages)
+    assert entity in text and child in text and 'Invoice' not in text
+    word = zipfile.ZipFile(io.BytesIO(export(business,content,'docx')))
+    slides = zipfile.ZipFile(io.BytesIO(export(business,content,'pptx')))
+    assert len([n for n in word.namelist() if n.startswith('word/media/')]) >= 5
+    assert len([n for n in slides.namelist() if n.startswith('ppt/media/')]) >= 5

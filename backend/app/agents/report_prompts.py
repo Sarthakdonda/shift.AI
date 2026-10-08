@@ -46,9 +46,14 @@ hld: architecture diagram of channels, components, storage, external systems, id
 lld: each component's responsibilities, inputs/outputs, interfaces, rules, dependencies, data ownership, failures and security boundary.
 security: access matrix, privacy, applicable jurisdiction validation, audit, retention, data protection and governance.
 infrastructure: environments, runtime/hosting, networking, storage, secrets, scaling, availability, backups/DR, logging and monitoring.
-deployment: CI/CD, promotion, configuration, schema/data migration, release checks, rollback and operating owner.
+deployment: actual kind=architecture deployment diagram showing frontend/backend/database environments and hosting boundaries;
+CI/CD, promotion, configuration, schema/data migration, release checks, rollback and operating owner.
 operating_model: human review/override/approval, escalations, support, incident response and process ownership.
-For all chapters populate component_refs/entity_refs/integration_refs for catalogue objects actually used.''',
+For all chapters populate component_refs/entity_refs/integration_refs for catalogue objects actually used.
+Populate requirements with unique REQ-* IDs for functional AND non-functional requirements, objectives, user stories,
+measurable acceptance criteria, module/component/entity mappings, proposed test IDs/scenarios and supporting user/document
+evidence or explicitly unconfirmed assumptions. API operations must use exact METHOD /path identifiers that data_report
+will implement. Preserve existing requirement IDs on revision. Entity identifiers use letters/digits/underscores only.''',
     'experience_report': '''Use architecture_report's catalogue; do not invent extra components/entities/integrations.
 Use chapter keys exactly once:
 stakeholders: personas, goals, responsibilities, interests, permission boundaries, success definition and pain points.
@@ -75,7 +80,15 @@ Include OpenAPI YAML if custom APIs are proposed; all schema entities must match
 integrations: data_flow diagram and contracts: system/direction, protocol/API/event/file, mapping/transformation,
 authentication, retries/failure handling, reconciliation, ownership and source-of-truth rules.
 Mark custom database/API design not applicable with reason if the selected path only changes a manual process or existing tool configuration.
-Only mark the conceptual data_model not applicable when there are no business entities/records to model.''',
+Only mark the conceptual data_model not applicable when there are no business entities/records to model.
+For a custom relational database, populate database_design: dialect PostgreSQL, canonical entities, column names/types,
+nullable/primary_key/unique flags, indexes and retention, explicit foreign-key relationships (source is child, target is
+parent), normalization and safe migration considerations. All FK types must match and referenced keys must be primary
+or unique; SET NULL needs nullable columns. Use junction entities for many-to-many links. The platform renders ER,
+SQL and field tables from this single contract. Do not invent HR-specific entities for another business.
+Keep database_design null only when no custom relational database is proposed and explain why.
+OpenAPI must implement the exact operations in architecture_report.requirements, with request/response schemas,
+authorization, validation errors and pagination. Identify missing source evidence as an assumption.''',
     'planning_report': '''Use all preceding design parts and selected option. Use chapter keys exactly once:
 estimates: phase/module/workstream effort ranges, one-time development/setup and recurring infrastructure/license/support costs,
 arithmetic/rates/currency where provided, unknown vendor quotes, assumptions/confidence. Also populate typed estimates

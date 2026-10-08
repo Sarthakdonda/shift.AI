@@ -81,7 +81,8 @@ class Store:
             role = 'owner'
         else:
             raise AppError('Project not found.', 404)
-        if p.get('busy') and p.get('lease_until', now()).replace(tzinfo=timezone.utc) < now():
+        pending = self.db.builder_jobs.find_one({'project_id': pid, 'status': {'$in': ['queued', 'running']}}) if p.get('busy') else None
+        if p.get('busy') and not pending and p.get('lease_until', now()).replace(tzinfo=timezone.utc) < now():
             self.update(pid, busy=False, status='ERROR', error='The previous operation was interrupted. Please retry.')
             p = self.db.projects.find_one({'_id': ObjectId(pid)})
         return {**p, 'access_role': role}
@@ -125,7 +126,7 @@ class Store:
 
     def invalidate(self, pid):
         self.db.analyses.delete_many({'project_id': pid})
-        # Retain version history; latest blueprint is inaccessible until reanalysis.
+        # Retain all blueprint versions; show them as historical until reanalysis.
         self.update(pid, analysis_ready=False, ai_necessity=None, status='DISCOVERY')
         self.db.projects.update_one({'_id': ObjectId(pid)}, {'$inc': {'context_revision': 1}})
 
@@ -136,7 +137,7 @@ class Store:
         if self.db.application_deployments.find_one({'project_id': pid, 'status': {'$in': ['queued', 'pushing', 'submitting', 'deploying', 'health_pending', 'live']}}):
             raise AppError('This project has an active or live deployment. Preserve its release history and remove the hosting deployment before deleting the project.', 409)
         self.acquire(pid, owner)
-        for name in ['messages', 'documents', 'document_chunks', 'analyses', 'blueprints', 'artifacts', 'comments', 'reviews', 'outcomes', 'usage', 'notifications', 'activity', 'restored_archives', 'generation_requests', 'application_specs', 'application_builds', 'application_deployments']:
+        for name in ['messages', 'documents', 'document_chunks', 'analyses', 'blueprints', 'artifacts', 'comments', 'reviews', 'outcomes', 'usage', 'notifications', 'activity', 'restored_archives', 'generation_requests', 'application_specs', 'application_builds', 'application_deployments', 'application_generation_runs', 'application_generation_steps']:
             self.db[name].delete_many({'project_id': pid})
         self.db.projects.delete_one({'_id': ObjectId(pid)})
 
@@ -159,7 +160,10 @@ def get_store():
     if not s.mongodb_uri:
         raise AppError('Add MONGODB_URI to backend/.env and restart the backend.', 503, 'database_configuration')
     try:
-        client = MongoClient(s.mongodb_uri, serverSelectionTimeoutMS=5000, connectTimeoutMS=5000, socketTimeoutMS=15000)
+        client = MongoClient(s.mongodb_uri,
+                             serverSelectionTimeoutMS=s.mongodb_server_selection_timeout_ms,
+                             connectTimeoutMS=s.mongodb_connect_timeout_ms,
+                             socketTimeoutMS=s.mongodb_socket_timeout_ms)
     except InvalidURI:
         raise AppError('Check MONGODB_URI in backend/.env.', 503, 'database_configuration') from None
     except Exception:

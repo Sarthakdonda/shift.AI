@@ -110,7 +110,7 @@ def test_generated_trusted_runtime_real_http_database_contract(tmp_path):
     # Fixed, compiler-owned runtime only. No AI-produced Python is executed here.
     result = subprocess.run([sys.executable, '-m', 'unittest', 'selftest', '-v'], cwd=tmp_path, capture_output=True, text=True, timeout=45)
     assert result.returncode == 0, result.stdout + result.stderr
-    assert 'Ran 4 tests' in result.stderr
+    assert 'test_business_rules' in result.stderr and 'OK' in result.stderr
 
 
 def test_unsafe_edits_are_not_approved(setup, project):

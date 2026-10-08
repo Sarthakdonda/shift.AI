@@ -58,16 +58,21 @@ def build_and_test(build_id, files):
         logs.append(docker('build', '--platform=linux/amd64', '--network=none', '--pull=false', '-t', name, directory, timeout=get_settings().builder_timeout_seconds, include_stderr=True)[-6000:])
     container = 'shift-test-' + build_id
     try:
-        logs.append(docker('run', '--rm', '--name', container, '--network=none', '--read-only',
-            '--cap-drop=ALL', '--security-opt=no-new-privileges', '--memory=256m', '--memory-swap=256m', '--cpus=1', '--pids-limit=64',
-            '--tmpfs', '/tmp:rw,noexec,nosuid,size=64m', name, 'python', '-m', 'unittest', 'selftest', '-v', timeout=120, include_stderr=True))
+        try:
+            logs.append(docker('run', '--rm', '--name', container, '--network=none', '--read-only',
+                '--cap-drop=ALL', '--security-opt=no-new-privileges', '--memory=256m', '--memory-swap=256m', '--cpus=1', '--pids-limit=64',
+                '--tmpfs', '/tmp:rw,noexec,nosuid,size=64m', name, 'python', '-m', 'unittest', 'selftest', '-v', timeout=120, include_stderr=True))
+        except AppError as exc:
+            if 'FAILED (' in exc.message and 'selftest' in exc.message:
+                raise AppError(exc.message, 422, 'application_validation') from None
+            raise
     finally:
         # This exact container was created by this build; never stop other containers.
         try:
             docker('rm', '-f', container, timeout=10)
         except AppError:
             pass
-    return {'status': 'passed', 'checks': ['runtime_startup', 'database', 'authentication', 'authorization', 'crud', 'relationships', 'workflow', 'persistence'], 'logs': logs,
+    return {'status': 'passed', 'checks': ['runtime_startup', 'database', 'authentication', 'authorization', 'crud', 'relationships', 'workflow', 'persistence', 'business_rule_examples'], 'logs': logs,
             'limitations': ['No browser, device, external integration or load tests were executed in this container.']}
 
 

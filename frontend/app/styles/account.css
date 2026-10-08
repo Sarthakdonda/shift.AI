@@ -1,0 +1,236 @@
+/* ==========================================================================
+   shift.AI — account security
+   Factor status, enrollment key, recovery codes, activity, administration.
+   Uses only foundation tokens: no new palette, radii, shadows or fonts.
+   ========================================================================== */
+
+.ac-page {
+  display: grid;
+  gap: 22px;
+  max-width: 940px;
+}
+
+.ac-page > * {
+  min-width: 0;
+}
+
+.ac-page .page-heading {
+  margin-bottom: 4px;
+}
+
+/* ---------- Factor status ---------- */
+
+.ac-status {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.ac-tile {
+  display: grid;
+  gap: 4px;
+  padding: 15px 17px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--paper-2);
+}
+
+.ac-tile small {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+}
+
+.ac-tile small svg {
+  color: var(--orange);
+}
+
+.ac-tile strong {
+  font-size: 16.5px;
+  font-weight: 650;
+  letter-spacing: -0.024em;
+}
+
+/* ---------- Reauthentication form ---------- */
+
+.ac-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 16px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.ac-form label {
+  display: grid;
+  gap: 0;
+}
+
+.ac-form .field-hint {
+  margin-top: 7px;
+  font-weight: 500;
+}
+
+.ac-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+
+/* ---------- Enrollment key & recovery codes ---------- */
+
+.ac-secret {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+  padding: 18px;
+  border: 1px dashed #f0d6b6;
+  border-radius: var(--r-md);
+  background: var(--cream-2);
+}
+
+.ac-secret p {
+  font-size: 13px;
+  color: #6b5238;
+}
+
+.ac-secret-key {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 11px 14px;
+  border: 1px solid #f2d9bd;
+  border-radius: var(--r-sm);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.ac-secret-key code {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  overflow-wrap: anywhere;
+}
+
+.ac-codes {
+  display: grid;
+  gap: 14px;
+  margin-top: 20px;
+  padding: 20px;
+  border: 1px solid #c8e6d8;
+  border-radius: var(--r-md);
+  background: var(--green-tint);
+}
+
+.ac-codes h3 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--green);
+}
+
+.ac-codes > p {
+  font-size: 13px;
+  color: #2b5c49;
+}
+
+.ac-code-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 9px;
+}
+
+.ac-code-grid span {
+  padding: 9px 12px;
+  border: 1px solid #c8e6d8;
+  border-radius: var(--r-xs);
+  background: rgba(255, 255, 255, 0.82);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Activity ---------- */
+
+.ac-activity {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ac-activity li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+
+.ac-activity li:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.ac-activity strong {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 620;
+}
+
+.ac-activity strong svg {
+  color: var(--orange);
+}
+
+.ac-activity time {
+  color: var(--muted-2);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Administration ---------- */
+
+.ac-admin-account {
+  display: grid;
+  gap: 2px;
+}
+
+.ac-admin-account small {
+  color: var(--muted-2);
+}
+
+.ac-table-actions {
+  text-align: right;
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 700px) {
+  .ac-actions .button {
+    width: 100%;
+  }
+
+  .ac-secret-key {
+    justify-content: flex-start;
+  }
+
+  .ac-secret-key .button {
+    width: 100%;
+  }
+}

@@ -9,9 +9,10 @@ export async function signInWithEmail(
   email: string,
   password: string,
   onWaiting?: (waiting: boolean) => void,
+  code?: string,
 ) {
   await waitForWorkspace(onWaiting);
-  await post(emailLoginPath, { email, password });
+  await post(emailLoginPath, { email, password, code });
   return verifySession();
 }
 

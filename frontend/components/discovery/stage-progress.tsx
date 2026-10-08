@@ -15,7 +15,7 @@ export const stages = [
 
 /** Same status mapping the workspace has always used, presented compactly. */
 export const stageIndex = (status: string) =>
-  status === "BLUEPRINT_READY"
+  ["BLUEPRINT_READY", "BLUEPRINT_DRAFT"].includes(status)
     ? 4
     : status === "BUSINESS_VALUE" || status === "RED_TEAM_REVIEW"
       ? 3

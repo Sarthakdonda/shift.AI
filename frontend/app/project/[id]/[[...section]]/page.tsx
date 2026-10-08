@@ -41,6 +41,7 @@ import {
   BulletList,
 } from "@/components/analysis/report";
 import { blueprintMarkdown } from "@/components/blueprint/export";
+import { BlueprintWorkbench } from "@/components/blueprint/workbench";
 import { ReviewWorkbench } from "@/components/review/workbench";
 import { WebsiteInput } from "@/components/application/url-input";
 
@@ -155,8 +156,8 @@ export default function Workspace({
       setError(`Files must be ${health?.max_upload_mb || 15} MB or smaller.`);
       return;
     }
-    if (!/\.(pdf|docx|pptx|txt|csv|xlsx)$/i.test(file.name)) {
-      setError("Choose a PDF, DOCX, PPTX, TXT, CSV, or XLSX file.");
+    if (!/\.(pdf|doc|docx|ppt|pptx|txt|csv|xlsx|png|jpe?g|tiff?)$/i.test(file.name)) {
+      setError("Choose a PDF, DOC/DOCX, PPT/PPTX, TXT, CSV, XLSX, PNG, JPEG or TIFF file.");
       return;
     }
     const body = new FormData();
@@ -265,7 +266,7 @@ export default function Workspace({
         ref={fileInput}
         type="file"
         hidden
-        accept=".pdf,.docx,.pptx,.txt,.csv,.xlsx"
+        accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.csv,.xlsx,.png,.jpg,.jpeg,.tif,.tiff"
         onChange={(e) => void upload(e.target.files?.[0])}
       />
       {loading ? (
@@ -457,7 +458,7 @@ export default function Workspace({
                   <T text={" Choose a file"} />
                 </Button>
                 <small>
-                  <T text={"PDF, DOCX, PPTX, TXT, CSV, XLSX · Up to"} />{" "}
+                  <T text={"Documents and scanned images · Up to"} />{" "}
                   {health?.max_upload_mb || 15}
                   <T text={" MB · 20 files per project"} />
                 </small>
@@ -547,7 +548,7 @@ export default function Workspace({
                 <span>
                   <T
                     text={
-                      "Text is extracted for analysis. Scanned PDFs need OCR before upload. Original files are not retained."
+                      "Text is extracted for analysis. Legacy Office files and scanned pages use isolated conversion and OCR when the converter is configured. Original files are not retained."
                     }
                   />
                 </span>
@@ -596,6 +597,7 @@ export default function Workspace({
           {tab === "blueprint" &&
             (blueprint ? (
               <div className="blueprint-page">
+                <BlueprintWorkbench key={blueprint.version} blueprint={blueprint} project={project} reload={load}/>
                 {blueprint.content.review_gate && blueprint.content.review_gate !== "passed" && (
                   <div className="rt-notice" role="status">
                     <strong>{blueprint.content.review_gate === "blocked" ? "Draft — unresolved Red Team blockers." : "Reviewed with remaining risks."}</strong>{" "}
@@ -683,6 +685,7 @@ export default function Workspace({
                       <T text={" Print / PDF"} />
                     </Button>
                     {blueprint.content.final_report && <a className="button button-secondary" href={`${API_BASE}/api/projects/${id}/export/blueprint/docx?version=${blueprint.version}`}>Word</a>}
+                    {blueprint.content.final_report && <><a className="button button-secondary" href={`${API_BASE}/api/projects/${id}/export/blueprint/xlsx?version=${blueprint.version}`}>Excel</a><a className="button button-secondary" href={`${API_BASE}/api/projects/${id}/export/blueprint/pptx?version=${blueprint.version}`}>PowerPoint</a></>}
                   </div>
                 </div>
                 <div className="blueprint-cover">
@@ -790,7 +793,7 @@ function ProjectDialogs({
         open={rerunning}
         onOpenChange={setRerunning}
         title="Run a fresh analysis?"
-        description="This will generate new results and replace the current analysis and blueprint. Export your current blueprint first if you want to keep a copy."
+        description="This will generate a new analysis and blueprint version. Your saved blueprint versions will remain available for review and export."
         confirmLabel="Run analysis"
         onConfirm={async () => {
           await post(`/projects/${id}/analysis/run`);

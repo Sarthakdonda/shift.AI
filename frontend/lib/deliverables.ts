@@ -54,6 +54,8 @@ export type Artifact = {
   }[];
 };
 export type DeliverableState = {
+  generation_ready: boolean;
+  generation_reason: string | null;
   items: {
     kind: string;
     label: string;

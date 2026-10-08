@@ -4,6 +4,7 @@ import re
 from pydantic import BaseModel, Field, model_validator
 from app.models.deliverables import Section, Diagram, Screen, CodeAsset
 from app.models.provider_schema import ProviderModel as ReportModel
+from app.models.blueprint_design import DatabaseDesign, Requirement
 
 Tier = Literal['lean', 'balanced', 'advanced']
 
@@ -140,7 +141,8 @@ class ReportPart(ReportModel):
                     raise ValueError(c.key + ' must be addressed for every solution, including process changes.')
                 continue
             expected = {'hld': {'architecture'}, 'future_process': {'swimlane', 'decision_tree'},
-                        'journeys': {'workflow'}, 'data_model': {'er'}, 'integrations': {'data_flow'}}.get(c.key, set())
+                        'journeys': {'workflow'}, 'data_model': {'er'}, 'integrations': {'data_flow'},
+                        'deployment': {'architecture'}}.get(c.key, set())
             if not expected.issubset({d.kind for d in c.diagrams}):
                 raise ValueError(c.key + ' requires diagrams: ' + ', '.join(expected))
             if c.key == 'data_model':
@@ -160,6 +162,7 @@ class ArchitectureReport(ReportPart):
     component_names: list[str] = Field(min_length=1)
     entity_names: list[str]
     integration_names: list[str]
+    requirements: list[Requirement] = Field(default_factory=list, max_length=60)
 
 
 class ExperienceReport(ReportPart):
@@ -168,6 +171,7 @@ class ExperienceReport(ReportPart):
 
 class DataReport(ReportPart):
     required_keys = {'data_model', 'database', 'apis', 'integrations'}
+    database_design: DatabaseDesign | None = None
 
 
 class ReportRisk(BaseModel):
@@ -194,6 +198,8 @@ def validate_consistency(decision, solution, parts):
     decision = OptionDecision.model_validate(decision)
     models = [schema.model_validate(parts[key]) for key, schema in PART_SCHEMAS.items()]
     architecture = models[0]
+    if models[2].database_design and {e.name for e in models[2].database_design.entities} != set(architecture.entity_names):
+        raise ValueError('The validated database design must cover exactly the canonical entity catalogue.')
     data_model = next(c for c in models[2].chapters if c.key == 'data_model')
     if architecture.entity_names:
         if data_model.applicability != 'applicable':

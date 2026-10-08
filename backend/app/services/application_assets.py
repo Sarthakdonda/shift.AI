@@ -45,17 +45,20 @@ def assets(spec, build_id):
              '/api/spec': {'get': {'responses': responses}},
              '/api/users': {'get': {'description': 'Administrator only', 'responses': responses}, 'post': {'description': 'Administrator only', 'requestBody': json_body({'type': 'object', 'required': ['email', 'password', 'role'], 'properties': {'email': {'type': 'string', 'format': 'email'}, 'password': {'type': 'string', 'minLength': 12}, 'role': {'type': 'string', 'enum': spec['roles']}}}), 'responses': {'201': {'description': 'Account created'}, **responses}}}}
     for entity in spec['entities']:
+        computed = (entity.get('logic') or {}).get('outputs', [])
         props = {f['name']: {'type': 'number' if f['kind'] == 'number' else 'boolean' if f['kind'] == 'boolean' else 'string',
-                           'nullable': not f['required'], **({'enum': f['options']} if f['kind'] == 'select' else {})} for f in entity['fields']}
-        shape = {'type': 'object', 'properties': props, 'required': [f['name'] for f in entity['fields'] if f['required']], 'additionalProperties': False}
+                           'nullable': not f['required'], 'readOnly': f['name'] in computed, **({'enum': f['options']} if f['kind'] == 'select' else {})} for f in entity['fields']}
+        shape = {'type': 'object', 'properties': props, 'required': [f['name'] for f in entity['fields'] if f['required'] and f['name'] not in computed], 'additionalProperties': False}
         base = '/api/records/' + entity['name']
         paths[base] = {'get': {'description': 'Read roles: admin, ' + ', '.join(entity['read_roles']), 'parameters': [{'in': 'query', 'name': 'q', 'schema': {'type': 'string'}}, {'in': 'query', 'name': 'offset', 'schema': {'type': 'integer'}}], 'responses': {'200': {'description': 'At most 100 records', 'content': {'application/json': {'schema': {'type': 'array', 'items': {'type': 'object', 'properties': {'id': {'type': 'string'}, **props}}}}}}, **{k:v for k,v in responses.items() if k != '200'}}},
                        'post': {'description': 'Write roles: admin, ' + ', '.join(entity['write_roles']), 'requestBody': json_body(shape), 'responses': responses}}
         parameter = [{'in': 'path', 'name': 'id', 'required': True, 'schema': {'type': 'string'}}]
         paths[base+'/{id}'] = {'parameters': parameter, 'post': {'summary': 'Update record', 'requestBody': json_body(shape), 'responses': responses}, 'delete': {'responses': responses}}
+        for action in entity.get('integrations', []):
+            paths[base+'/{id}/integrations/'+action['name']] = {'parameters': parameter, 'post': {'description': action['description'], 'requestBody': json_body({'type': 'object', 'required': ['request_id'], 'properties': {'request_id': {'type': 'string', 'minLength': 16, 'maxLength': 80}}}), 'responses': {'202': {'description': 'Queued for delivery'}, **responses}}}
         if entity['transitions']:
             paths[base+'/{id}/transition'] = {'parameters': parameter, 'post': {'description': 'Zero-based transition index; source state and role enforced.', 'requestBody': json_body({'type': 'object', 'required': ['transition'], 'properties': {'transition': {'type': 'integer', 'minimum': 0, 'maximum': len(entity['transitions'])-1}}}), 'responses': responses}}
     files['openapi.json'] = json.dumps({'openapi': '3.0.3', 'info': {'title': spec['name'], 'version': build_id, 'description': 'Writes require the exact APP_ORIGIN in the Origin header. Admin has global module access.'},
         'security': [{'session': []}], 'components': {'securitySchemes': {'session': {'type': 'apiKey', 'in': 'cookie', 'name': 'app_session'}}}, 'paths': paths}, ensure_ascii=False, indent=2)
-    files['traceability.json'] = json.dumps([{'requirement': r, 'modules': [e['name'] for e in spec['entities'] if r['id'] in e['requirement_ids']], 'validation': 'Not executed by compilation; see build validation results.'} for r in spec['requirements']], ensure_ascii=False, indent=2)
+    files['traceability.json'] = json.dumps([{'requirement': r, 'modules': [e['name'] for e in spec['entities'] if r['id'] in e['requirement_ids']], 'public_pages': [p['slug'] for p in spec.get('public_pages', []) if r['id'] in p['requirement_ids']], 'validation': 'Not executed by compilation; see build validation results.'} for r in spec['requirements']], ensure_ascii=False, indent=2)
     return files

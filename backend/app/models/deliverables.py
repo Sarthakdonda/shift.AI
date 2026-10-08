@@ -28,7 +28,7 @@ class Section(BaseModel):
 
 class DiagramNode(BaseModel):
     id: str = Field(pattern=r'^[A-Za-z][A-Za-z0-9_]{0,49}$')
-    label: str = Field(min_length=1, max_length=300)
+    label: str = Field(min_length=1, max_length=6000)
     lane: str = Field(max_length=100)
     kind: Literal['start', 'task', 'decision', 'end', 'entity', 'component']
 
@@ -36,7 +36,7 @@ class DiagramNode(BaseModel):
 class DiagramEdge(BaseModel):
     source: str
     target: str
-    label: str = Field(max_length=200)
+    label: str = Field(max_length=1000)
 
 
 class Diagram(BaseModel):

@@ -45,6 +45,8 @@ const workspaceNav = [
   ["Projects", "/dashboard", LayoutDashboard],
   ["New project", "/project/new", Plus],
   ["Teams & admin", "/workspaces", ShieldCheck],
+  ["Billing", "/billing", FileCheck2],
+  ["Account security", "/account", ShieldCheck],
   ["Transformation", "/transformation", ChartNoAxesCombined],
 ] as const;
 

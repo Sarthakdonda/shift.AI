@@ -2,7 +2,7 @@
 
 import type { Diagram, Deliverable, Table } from "@/lib/deliverables";
 import { T } from "@/components/locale";
-import { ERDiagram } from "./er-diagram";
+import { BlueprintDiagram } from "./diagram";
 type Screen = Deliverable["screens"][number];
 type CodeAsset = Deliverable["code_assets"][number];
 
@@ -30,45 +30,6 @@ export type ImplementationDocument = {
   selected_option: string;
   sections: ReportChapter[];
 };
-
-// A node and its labelled outgoing connections form one printable flow row.
-// Large graphs paginate at rows rather than shrinking a 30-node SVG to tiny text.
-function ReportFlow({ diagram }: { diagram: Diagram }) {
-  if (diagram.kind === "er") return <ERDiagram diagram={diagram} />;
-  const names = Object.fromEntries(diagram.nodes.map((n) => [n.id, n.label]));
-  return (
-    <figure className="report-flow">
-      <figcaption>{diagram.title}</figcaption>
-      {diagram.nodes.map((node) => {
-        const edges = diagram.edges.filter((e) => e.source === node.id);
-        return (
-          <div className="report-flow-row" key={node.id}>
-            <div className={`report-flow-node report-flow-${node.kind}`}>
-              <small>
-                {node.lane} · {node.kind}
-              </small>
-              <strong>{node.label}</strong>
-            </div>
-            <div className="report-flow-connections">
-              {edges.map((edge, i) => (
-                <p key={i}>
-                  <span aria-hidden="true">→ </span>
-                  {edge.label && <em>{edge.label}: </em>}
-                  {names[edge.target]}
-                </p>
-              ))}
-              {!edges.length && (
-                <p className="muted">
-                  <T text="No outgoing connection" />
-                </p>
-              )}
-            </div>
-          </div>
-        );
-      })}
-    </figure>
-  );
-}
 
 function Wireframe({ screen }: { screen: Screen }) {
   return (
@@ -166,7 +127,7 @@ export function ImplementationReport({
             </div>
           ))}
           {section.diagrams.map((diagram, j) => (
-            <ReportFlow key={j} diagram={diagram} />
+            <BlueprintDiagram key={j} diagram={diagram} />
           ))}
           {section.screens.map((screen, j) => (
             <Wireframe key={j} screen={screen} />

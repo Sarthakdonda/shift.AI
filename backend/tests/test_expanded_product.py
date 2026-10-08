@@ -26,7 +26,7 @@ def register(client, email='owner@example.com', name='Test Owner'):
 def ready(client,pid):
     assert client.post(f'/api/projects/{pid}/discovery/next').status_code==200
     assert client.post(f'/api/projects/{pid}/analysis/run').status_code==202
-    assert client.get(f'/api/projects/{pid}').json()['status']=='BLUEPRINT_READY'
+    assert client.get(f'/api/projects/{pid}').json()['status']=='BLUEPRINT_DRAFT'  # Review blocker remains visible.
 
 
 def test_real_email_flow_hashing_sessions_isolation(setup,project):
@@ -174,7 +174,7 @@ def test_backup_restore_preserves_original_and_does_not_import_approval(setup):
     response=client.post(f'/api/workspaces/{wid}/restore',json=backup.json())
     assert response.status_code==201,response.text
     new=response.json()['project_ids'][0];assert new!=pid
-    assert client.get(f'/api/projects/{pid}').json()['status']=='BLUEPRINT_READY'
+    assert client.get(f'/api/projects/{pid}').json()['status']=='BLUEPRINT_DRAFT'
     assert client.get(f'/api/projects/{new}').json()['status']=='DISCOVERY'
     assert client.get(f'/api/projects/{new}/collaboration').json()['reviews']==[]
     assert client.get(f'/api/projects/{new}/restored-history').json()['reviews_archive']

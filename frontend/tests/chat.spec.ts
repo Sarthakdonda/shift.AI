@@ -114,6 +114,26 @@ test("quota errors stay specific and retry sends the original prompt once", asyn
   expect(calls).toBe(2);
 });
 
+test("coded provider failures keep their message while uncoded faults stay generic", async ({ page }) => {
+  await startProject(page, "Coded failures", "Our dispatch team copies charger readings into three spreadsheets.");
+  let calls = 0;
+  await page.route(/\/api\/projects\/[^/]+\/chat$/, (route) => {
+    calls++;
+    return calls === 1
+      ? route.fulfill({ status: 502, json: { code: "invalid_ai_output", detail: "The AI response could not be validated. Your answer is saved; please retry." } })
+      : route.fulfill({ status: 500, json: { detail: "Traceback in app/services/secret_path.py" } });
+  });
+  const input = page.getByLabel("Your message");
+  await input.fill("We use ABB Terra 54 chargers on OCPP 1.6J.");
+  await input.press("Enter");
+  await expect(page.locator(".dx-alert")).toContainText("could not be validated");
+  await expect(page.locator(".dx-alert")).not.toContainText("temporarily unavailable");
+  await page.getByRole("button", { name: "Try again", exact: true }).click();
+  await expect(page.locator(".dx-alert")).toContainText("temporarily unavailable");
+  await expect(page.getByText("secret_path")).toHaveCount(0);
+  expect(calls).toBe(2);
+});
+
 test("usage displays known availability and cooldown without invented quotas", async ({ page }) => {
   await page.route(/\/api\/projects\/[^/]+\/usage$/, (route) => route.fulfill({ json: {
     configured_connections: 9, available_connections: 0, status: "rate_limited", retry_at: new Date(Date.now() + 120000).toISOString(),

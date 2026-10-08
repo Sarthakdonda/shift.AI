@@ -41,6 +41,7 @@ def test_all_keys_exhausted_is_safe_and_bounded(setup, monkeypatch):
         ai.generate_structured('Decide', {}, Necessity)
     assert result.value.code == 'rate_limited'
     assert result.value.status == 429
+    assert 'API limit reached' in result.value.message
     assert 'primary-secret' not in result.value.message
     assert sum(c.call_count for c in calls) == 6
 

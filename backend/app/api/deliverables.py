@@ -25,6 +25,16 @@ def kind_exists(kind):
         raise AppError('Deliverable type not found.', 404)
 
 
+def generation_source(s, p):
+    from app.services.application_service import current_blueprint
+    # Existing analysis drafts can still generate reviewed design deliverables.
+    if not p.get('application_source') and p.get('analysis_ready') and p['status'] in ('BLUEPRINT_READY', 'BLUEPRINT_DRAFT'):
+        return s.latest('blueprints', str(p['_id']))
+    if p.get('application_source') or s.latest('blueprints', str(p['_id'])):
+        return current_blueprint(s, p)
+    raise AppError('Upload or select a blueprint in Application studio to generate directly. Discovery is only needed to create a new blueprint from an idea.', 409)
+
+
 def save(s, p, kind, content, actor, language, note, reviews=None):
     pid = str(p['_id'])
     previous = latest(s, pid, kind)
@@ -43,7 +53,7 @@ def generate_job(pid, actor, kinds, body):
         p = s.project(pid, actor)
         service = ProjectService(s, ai)
         context = service.context(pid, actor)
-        context['blueprint'] = serialize(s.latest('blueprints', pid)) if p['status'] == 'BLUEPRINT_READY' else None
+        context['blueprint'] = serialize(generation_source(s, p))
         context['feedback'] = serialize(list(s.db.comments.find({'project_id': pid}).sort('created_at', -1).limit(30)))
         context['human_reviews'] = serialize(list(s.db.reviews.find({'project_id': pid}).sort('created_at', -1).limit(30)))
         language = LANGUAGES.get(body.language, body.language)
@@ -99,15 +109,20 @@ def deliverables(pid: str, account=Depends(user)):
         item = latest(s, pid, kind)
         result.append({'kind': kind, 'label': SPECS[kind][0], 'artifact': serialize(item),
                        'stale': bool(item and item.get('source_revision', 0) != p.get('context_revision', 0))})
-    return {'items': result, 'jobs': serialize(p.get('artifact_jobs', {})), 'busy': p.get('busy', False), 'role': p['access_role']}
+    try:
+        generation_source(s, p)
+        ready, reason = True, None
+    except AppError as exc:
+        ready, reason = False, exc.message
+    return {'items': result, 'jobs': serialize(p.get('artifact_jobs', {})), 'busy': p.get('busy', False), 'role': p['access_role'],
+            'generation_ready': ready, 'generation_reason': reason}
 
 
 @router.post('/projects/{pid}/deliverables/{kind}/generate', status_code=202)
 def generate(pid: str, kind: str, body: GenerateInput, tasks: BackgroundTasks, account=Depends(user)):
     if kind != 'all': kind_exists(kind)
     s = get_store(); p = s.project(pid, account['id'], 'write')
-    if not p.get('analysis_ready') or p['status'] != 'BLUEPRINT_READY':
-        raise AppError('Complete discovery and the core analysis before generating implementation deliverables.', 409)
+    generation_source(s, p)
     get_gemini().require()
     s.acquire(pid, account['id'])
     kinds = list(KINDS) if kind == 'all' else [kind]

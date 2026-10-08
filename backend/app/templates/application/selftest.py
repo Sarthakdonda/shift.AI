@@ -20,6 +20,9 @@ class ApplicationAcceptance(unittest.TestCase):
         cls.environment = patch.dict(os.environ, {'DATABASE_PATH': str(Path(cls.temp.name) / 'app.db'),
             'ADMIN_EMAIL': 'admin@example.test', 'ADMIN_PASSWORD': 'test-only-password-123', 'COOKIE_SECURE': 'false', 'APP_ORIGIN': 'http://test.local'})
         cls.environment.start()
+        # Acceptance tests always run against a throwaway SQLite file.
+        for name in ('DATABASE_BACKEND', 'MONGODB_URI', 'MONGODB_DATABASE', 'FRONTEND_ORIGINS', 'RENDER_EXTERNAL_URL'):
+            os.environ.pop(name, None)
         definition = importlib.util.spec_from_file_location('generated_runtime', Path(__file__).with_name('server.py'))
         cls.runtime = importlib.util.module_from_spec(definition)
         definition.loader.exec_module(cls.runtime)
@@ -72,9 +75,24 @@ class ApplicationAcceptance(unittest.TestCase):
         return result
 
     def values(self, entity):
-        return {f['name']: {'text': 'Example', 'email': 'sample@example.test', 'number': 42,
+        values = {f['name']: {'text': 'Example', 'email': 'sample@example.test', 'number': 42,
                            'date': '2026-09-23', 'boolean': True, 'select': (f['options'] or [''])[0],
                            'reference': 'reference-' + str(f['reference'])}[f['kind']] for f in entity['fields']}
+        if entity.get('logic'):
+            values.update(json.loads(entity['logic']['cases'][0]['input_json']))
+            for name in entity['logic']['outputs']:
+                values.pop(name, None)
+            # Frozen examples may carry placeholder identifiers and later workflow
+            # states. A new record must reference records that exist here and start
+            # in its initial state; business rules themselves are checked separately
+            # against the exact example in test_business_rules.
+            transitioned = {transition['field'] for transition in entity['transitions']}
+            for field in entity['fields']:
+                if field['kind'] == 'reference' and field['name'] in values:
+                    values[field['name']] = 'reference-' + str(field['reference'])
+                elif field['name'] in transitioned:
+                    values[field['name']] = field['options'][0]
+        return values
 
     def test_health_and_authentication(self):
         self.assertEqual(self.call('/health')[1]['build_id'], self.runtime.IDENTITY['build_id'])
@@ -82,6 +100,16 @@ class ApplicationAcceptance(unittest.TestCase):
         self.assertEqual(self.call('/api/login', {'email': 'admin@example.test', 'password': 'wrong'})[0], 401)
         self.assertEqual(self.call('/api/users', {'email': 'x'}, origin='https://evil.test')[0], 403)
         self.assertEqual(self.call('/api/spec')[1]['user']['role'], 'admin')
+
+    def test_business_rules(self):
+        for entity in self.runtime.SPEC['entities']:
+            logic = entity.get('logic')
+            if not logic:
+                continue
+            for index, case in enumerate(logic['cases']):
+                with self.subTest(entity=entity['name'], case=index):
+                    result = self.runtime.run_logic(self.runtime.FUNCTIONS[entity['name']], json.loads(case['input_json']))
+                    self.assertEqual(result, json.loads(case['expected_json']))
 
     def test_role_enforcement(self):
         _, _, cookie = self.call('/api/login', {'email': 'outsider@example.test', 'password': 'test-only-password-123'})
