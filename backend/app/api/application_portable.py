@@ -75,11 +75,11 @@ def sources(pid:str,account=Depends(user)):
     projects=list(s.db.projects.find(s.project_filter(account['id']),{'name':1}).limit(200))
     choices=[]
     for project in projects:
-        saved=s.latest('blueprints',str(project['_id']))
+        saved=s.db.blueprints.find_one({'project_id': str(project['_id'])}, projection={'version': 1}, sort=[('created_at', -1)])
         if saved:
             choices.append({'project_id':str(project['_id']),'name':project['name'],'version':saved['version']})
     imported=application_import.selected(s,p)
-    current=s.latest('blueprints',pid)
+    current=s.db.blueprints.find_one({'project_id': pid}, projection={'version': 1}, sort=[('created_at', -1)])
     try:
         application_service.current_blueprint(s,p)
         ready,reason=True,None
